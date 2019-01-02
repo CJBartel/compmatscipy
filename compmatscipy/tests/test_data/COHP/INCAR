@@ -1,0 +1,37 @@
+System     = XMoNx
+
+ISTART     = 0
+LWAVE      = T
+PREC       = accurate
+ADDGRID    = T
+LASPH      = T
+LPLANE     = T
+LVTOT      = T
+LAECHG     = T
+LORBIT     = 11
+EDIFF      = 1E-6
+LMAXMIX    = 6
+LREAL      = F
+
+EMIN       = -20
+EMAX       = 10
+NEDOS      = 8000
+!NPAR       = 8
+
+ENCUT      = 550
+ALGO       = Normal
+ISMEAR     = 0
+SIGMA      = 0.01
+
+IBRION     = -1
+
+METAGGA    = SCAN
+LMIXTAU    = T
+NELM       = 400
+
+LPEAD      = .TRUE.
+LOPTICS    = .TRUE.
+NBANDS     = 144
+
+ISPIN      = 1
+
