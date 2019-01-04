@@ -512,9 +512,16 @@ class VASPDOSAnalysis(object):
                     if el != 'total':
                         for orb in ['p', 'd']:
                             for spin in ['up', 'down']:
-                                data[E][el]['_'.join([orb, spin])] = np.sum([data[E][el][k] for k in data[E][el] if orb in k if spin in k])
+                                data[E][el]['_'.join([orb, spin])] = np.sum([data[E][el][k] for k in data[E][el] if k.split('_')[0][0] == orb if k.split('_')[1] == spin])
                         for spin in ['up', 'down']:
                             data[E][el]['_'.join(['all', spin])] = np.sum([data[E][el]['_'.join([orb, spin])] for orb in ['s', 'p', 'd']])
+            for E in data:
+                data[E]['total'] = {'up' : 0,
+                                    'down' : 0,}
+                for el in data[E]:
+                    if el != 'total':
+                        data[E]['total']['up'] += data[E][el]['all_up']
+                        data[E]['total']['down'] += data[E][el]['all_down']                        
             return write_json(data, fjson)
         else:
             data = read_json(fjson)
