@@ -622,7 +622,7 @@ class DoublePerovskiteStability(object):
             return np.nan
         return {site : {'els' : tuple(set([el_specific[site+'1']['el'], el_specific[site+'2']['el']])),
                         'n' : np.mean([el_specific[site+'1']['n'], el_specific[site+'2']['n']]),
-                        'r' : np.mean([el_specific[site+'1']['r'], el_specific[site+'2']['r']])} for site in ['A', 'B', 'X']}
+                        'r' : np.mean([el_specific[site+'1']['r'], el_specific[site+'2']['r']])} for site in ['A', 'B', 'X']}        
         
     @property
     def t(self):

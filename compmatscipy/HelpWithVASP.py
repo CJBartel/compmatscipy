@@ -254,6 +254,10 @@ class VASPBasicAnalysis(object):
         return data
     
     @property
+    def nelect(self):
+        return self.params_from_outcar(num_params=['NELECT'], str_params=[])['NELECT']
+    
+    @property
     def params_from_incar(self):
         """
         Args:
@@ -314,10 +318,17 @@ class VASPBasicAnalysis(object):
         Returns:
             CONTCAR if it exists; else POSCAR
         """
+        fposcar = os.path.join(self.calc_dir, 'POSCAR')
         if 'CONTCAR' in os.listdir(self.calc_dir):
-            return os.path.join(self.calc_dir, 'CONTCAR')
+            fcontcar = os.path.join(self.calc_dir, 'CONTCAR')
+            with open(fcontcar) as f:
+                contents = f.read()
+                if '0' in contents:
+                    return fcontcar
+                else:
+                    return fposcar
         else:
-            return os.path.join(self.calc_dir, 'POSCAR')
+            return fposcar
         
     @property
     def ordered_els_from_outcar(self):
