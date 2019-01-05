@@ -295,16 +295,28 @@ class VASPBasicAnalysis(object):
         if nsw == 0:    
             max_ionic_step = 1
         else:
-            with open(oszicar) as f:
-                for line in f:
-                    if 'F' in line:
-                        step = int(line.split('F')[0].strip())
-                max_ionic_step = step
-                if max_ionic_step == nsw:
-                    return False
+            if os.path.exists(oszicar):
+                with open(oszicar) as f:
+                    for line in f:
+                        if 'F' in line:
+                            step = line.split('F')[0].strip()
+                            if ' ' in step:
+                                step = step.split(' ')[-1]
+                            step = int(step)
+            else:
+                with open(outcar) as f:
+                    f.seek(0)
+                    for line in f:
+                        if ('Iteration' in line) and ('(' in line): #)
+                            step = line.split('Iteration')[1].split('(')[0].strip() #)
+                            step = int(step)
+            max_ionic_step = step
+            if max_ionic_step == nsw:
+                return False
         with open(outcar) as f:
+            f.seek(0)
             for line in f:
-                if ('Iteration' in line) and (str(max_ionic_step)) in line:
+                if ('Iteration' in line) and (str(max_ionic_step)+'(') in line: #)
                     step = line.split(str(max_ionic_step)+'(')[1].split(')')[0].strip()
                     if int(step) == nelm:
                         return False
@@ -323,7 +335,7 @@ class VASPBasicAnalysis(object):
             fcontcar = os.path.join(self.calc_dir, 'CONTCAR')
             with open(fcontcar) as f:
                 contents = f.read()
-                if '0' in contents:
+                if len(contents) > 0:
                     return fcontcar
                 else:
                     return fposcar
@@ -434,10 +446,19 @@ class VASPBasicAnalysis(object):
         if not self.is_converged:
             return np.nan
         oszicar = os.path.join(self.calc_dir, 'OSZICAR')
-        with open(oszicar) as f:
-            for line in f:
-                if 'F' in line:
-                    E = line.split('F=')[1].split('E0')[0].strip()
+        if os.path.exists(oszicar):
+            with open(oszicar) as f:
+                for line in f:
+                    if 'F' in line:
+                        E = float(line.split('F=')[1].split('E0')[0].strip())
+        else:
+            outcar = os.path.join(self.calc_dir, 'OUTCAR')
+            with open(outcar) as f:
+                for line in reversed(list(f)):
+                    if 'TOTEN' in line:
+                        line = line.split('=')[1]
+                        E = float(''.join([c for c in line if c not in [' ', '\n', 'e', 'V']]))
+                        break
         return float(E)/self.nsites
     
     @property
