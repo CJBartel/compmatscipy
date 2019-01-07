@@ -23,21 +23,22 @@ class VASPSetUp(object):
         """
         self.calc_dir = calc_dir
         
-    def incar(self, is_geometry_opt=False, functional='pbe', dos=False, dielectric=False, no_matter_what={'EDIFF' : 1e-6,
-                                                                                                          'ISMEAR' : 0,
-                                                                                                          'SIGMA' : 0.01,
-                                                                                                          'ENCUT' : 520,
-                                                                                                          'PREC' : 'Accurate',
-                                                                                                          'LORBIT' : 11,
-                                                                                                          'LASPH' : 'TRUE',
-                                                                                                          'ISIF' : 3}):
+    def incar(self, is_geometry_opt=False, functional='pbe', dos=False, dielectric=False, standard={'EDIFF' : 1e-6,
+                                                                                                    'ISMEAR' : 0,
+                                                                                                    'SIGMA' : 0.01,
+                                                                                                    'ENCUT' : 520,
+                                                                                                    'PREC' : 'Accurate',
+                                                                                                    'LORBIT' : 11,
+                                                                                                    'LASPH' : 'TRUE',
+                                                                                                    'ISIF' : 3}, additional={}):
         """
         Args:
             is_geometry_opt (bool) - True if geometry is optimized; else False
             functional (str) - 'pbe', 'scan', or 'hse'
             dos (bool) - True if accurate DOS desired
             dielectric (bool) - True if LOPTICS on
-            no_matter_what (dict) - dictionary of parameters to enforce in INCAR
+            standard (dict) - dictionary of parameters for starting point in INCAR
+        additional (dict) - dictionary of parameters to enforce in INCAR
         Returns:
             writes INCAR file
         """
@@ -69,8 +70,11 @@ class VASPSetUp(object):
             d['LOPTICS'] = 'TRUE'
             d['NEDOS'] = 2500
             
-        for k in no_matter_what:
-            d[k] = no_matter_what[k]
+        for k in standard:
+            d[k] = standard[k]
+        
+        for k in additional:
+            d[k] = additional[k]
             
         fincar = os.path.join(self.calc_dir, 'INCAR')
         with open(fincar, 'w') as f:
@@ -244,7 +248,7 @@ class VASPBasicAnalysis(object):
             for param in params:
                 f.seek(0)
                 for line in f:
-                    if param in line:
+                    if (param in line) and ('LMODELHF' not in line):
                         val = line.split(param)[1].split('=')[1].strip().split(' ')[0].replace(';', '')
                         break
                 if param in num_params:
@@ -853,7 +857,33 @@ class VASPDielectricAnalysis(object):
                     X, Y, Z = line[1:4]
                     eps = np.mean([X, Y, Z])
                     return eps
-
+            if real_count == 1e6:
+                f.seek(0)
+                count = 0
+                for line in f:
+                    count += 1
+                    if ('REAL DIELECTRIC FUNCTION' in line) and ('density-density' in line):
+                        real_count = count
+                    if count == real_count + 3:
+                        line = line[:-1].split(' ')
+                        line = [float(v) for v in line if len(v) > 0]
+                        X, Y, Z = line[1:4]
+                        eps = np.mean([X, Y, Z])
+                        return eps
+            if real_count == 1e6:
+                f.seek(0)
+                count = 0
+                for line in f:
+                    count += 1
+                    if ('REAL DIELECTRIC FUNCTION' in line) and ('no local' in line):
+                        real_count = count
+                    if count == real_count + 3:
+                        line = line[:-1].split(' ')
+                        line = [float(v) for v in line if len(v) > 0]
+                        X, Y, Z = line[1:4]
+                        eps = np.mean([X, Y, Z])
+                        return eps
+        
 def main():
     return
 

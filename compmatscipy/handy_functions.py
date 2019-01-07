@@ -8,6 +8,13 @@ Created on Tue Dec 11 22:04:40 2018
 import json, os
 import numpy as np
 
+def make_directory_tree(path_to_make, sep='/'):
+    path_pieces = path_to_make.split(sep)
+    for i in range(len(path_pieces)):
+        parent = sep.join(path_pieces[:i+1])
+        if not os.path.exists(parent):
+            os.mkdir(parent)
+
 def read_json(fjson):
     """
     Args:
