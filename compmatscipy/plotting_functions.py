@@ -69,7 +69,7 @@ def dos(calc_dir,
         colors_and_labels = {'total-summed-all' : {'color' : 'black',
                                                    'label' : 'total'}},
         xlim=(0, 0.1), ylim=(-10, 4), 
-        xticks=(False, []), yticks=(False, []), 
+        xticks=(False, [0, 0.1]), yticks=(False, [-10, 4]), 
         xlabel=r'$DOS/e^-$', ylabel=r'$E-E_F\/(eV)$',
         legend=True,
         smearing=0.2,
@@ -133,19 +133,17 @@ def dos(calc_dir,
                 ax = plt.plot(populations, energies, color=color, label=label, alpha=0.9, lw=dos_lw)                
                 occ_energies = [E for E in energies if E <= occupied_up_to]
                 occ_populations = [d[E] for E in occ_energies]
+                if smearing:
+                    occ_populations = gaussian_filter1d(occ_populations, smearing)                
                 ax = plt.fill_betweenx(occ_energies, occ_populations, color=color, alpha=0.2, lw=0)
     ax = plt.xlim(xlim)
     ax = plt.ylim(ylim)
-    if not xticks:
-        ax = plt.xticks()
-        ax = plt.gca().xaxis.set_ticklabels([])
-    else:
-        ax = plt.xticks(xticks)        
-    if not yticks:
-        ax = plt.yticks()
+    ax = plt.xticks(xticks[1])
+    ax = plt.yticks(yticks[1])
+    if not xticks[0]:
+        ax = plt.gca().xaxis.set_ticklabels([])      
+    if not yticks[0]:
         ax = plt.gca().yaxis.set_ticklabels([])
-    else:
-        ax = plt.yticks(yticks)
     ax = plt.xlabel(xlabel)
     ax = plt.ylabel(ylabel)
     if legend == True:
@@ -161,7 +159,7 @@ def cohp(calc_dir,
                                         'label' : 'total'}},
         tdos=False,                                        
         xlim=(-0.5, 0.5), ylim=(-10, 4), 
-        xticks=(False, []), yticks=(False, []),
+        xticks=(False, [-0.5, 0.5]), yticks=(False, [-10, 4]),
         xlabel=r'$-COHP/e^-$', ylabel=r'$E-E_F\/(eV)$',
         legend=True,
         smearing=1,
@@ -247,5 +245,8 @@ def cohp(calc_dir,
         
     return ax
 
-if __name__ == '__main__':
+def main():
     return
+
+if __name__ == '__main__':
+    main()
