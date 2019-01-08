@@ -42,14 +42,17 @@ def fixed_anion_oxidation_states():
         dictionary of {element (str) : oxidation state (int) for anions with likely fixed oxidation states}
     """
     minus_one = ['F', 'Cl', 'Br', 'I']
-    minus_two = ['O', 'S', 'Se']
-    fixed_anions = minus_one + minus_two
+    minus_two = ['O', 'S', 'Se', 'Te']
+    minus_three = ['N']
+    fixed_anions = minus_one + minus_two + minus_three
     data = {}
     for c in fixed_anions:
         if c in minus_one:
             data[c] = -1
         elif c in minus_two:
             data[c] = -2
+        elif c in minus_three:
+            data[c] = -3
     return data 
 
 def allowed_anions():
@@ -60,7 +63,7 @@ def allowed_anions():
         list of elements (str) that tau should be able to classify
             NOTE: only trained on ['O', 'F', 'Cl', 'Br', 'I']
     """
-    return ['O', 'S', 'Se', 'F', 'Cl', 'Br', 'I']   
+    return ['O', 'S', 'Se', 'Te', 'F', 'Cl', 'Br', 'I', 'N']   
 
 def t(rA, rB, rX):
     """
@@ -273,6 +276,8 @@ class SinglePerovskiteStability(object):
         """
         cations = self.cations
         n_cations = self.cation_oxidation_states
+        if isinstance(n_cations, float):
+            return np.nan
         shannon = shannon_revised_effective_ionic_radii_data()
         data = {c : {} for c in cations}
         for c in cations:
@@ -292,6 +297,8 @@ class SinglePerovskiteStability(object):
             A-site cation (str)
         """
         cation_radii_info = self.cation_radii_at_each_site
+        if isinstance(cation_radii_info, float):
+            return np.nan
         cations = self.cations
         if (cation_radii_info[cations[0]]['rA'] > cation_radii_info[cations[1]]['rA']) and (cation_radii_info[cations[0]]['rB'] > cation_radii_info[cations[1]]['rB']):
             return cations[0]
@@ -317,6 +324,8 @@ class SinglePerovskiteStability(object):
         Returns:
             B-site cation (str)
         """
+        if isinstance(self.cation_radii_at_each_site, float):
+            return np.nan        
         cations = self.cations
         A = self.A
         return [el for el in cations if el != A][0]
@@ -330,18 +339,23 @@ class SinglePerovskiteStability(object):
             dictionary of {site : {'el' : element (str),
                                    'n' : oxidation state (int),
                                    'r' : radius (float)} for site in ['A', 'B', 'X']}
-        """
+        """     
         A = self.A
         B = self.B
         X = self.X
         cation_radii_at_each_site = self.cation_radii_at_each_site
+        if isinstance(cation_radii_at_each_site, float):
+            return np.nan           
         nA = cation_radii_at_each_site[A]['n']
         nB = cation_radii_at_each_site[B]['n']
         nX = self.nX
         rA = cation_radii_at_each_site[A]['rA']
         rB = cation_radii_at_each_site[B]['rB']
         shannon = shannon_revised_effective_ionic_radii_data()
-        rX = shannon[X][str(nX)]['6']
+        if X == 'N':
+            rX = shannon[X][str(nX)]['4']
+        else:
+            rX = shannon[X][str(nX)]['6']
         return {'A' : {'el' : A,
                        'n' : nA,
                        'r' : rA},
@@ -362,6 +376,8 @@ class SinglePerovskiteStability(object):
                 0.825 < t < 1.059 --> likely perovskite
         """
         data = self.assigned_oxidation_states_and_radii
+        if isinstance(data, float):
+            return np.nan
         rA, rB, rX = data['A']['r'], data['B']['r'], data['X']['r']
         return t(rA, rB, rX)
     
@@ -375,6 +391,8 @@ class SinglePerovskiteStability(object):
                 tau < 4.18 --> likely perovskite
         """        
         data = self.assigned_oxidation_states_and_radii
+        if isinstance(data, float):
+            return np.nan        
         rA, rB, rX = data['A']['r'], data['B']['r'], data['X']['r']
         nA = data['A']['n']
         return tau(nA, rA, rB, rX)
@@ -386,10 +404,11 @@ class SinglePerovskiteStability(object):
         Returns:
             probability of perovskite based on tau (float)
         """
-        if math.isnan(self.tau):
+        tau = self.tau
+        if math.isnan(tau) or math.isinf(tau):
             return np.nan
-        X = [[self.tau]]
-        return clf.predict_proba(X)[0][1]
+        X = [[tau]]
+        return clf.predict_proba(X)[0][1] 
     
 class DoublePerovskiteStability(object):
     
@@ -539,7 +558,7 @@ class DoublePerovskiteStability(object):
             most_electronegative_cation = max(chis, key=chis.get)
             least_electronegative_cation = min(chis, key=chis.get)       
             if (len(combos) == 2) and (combos[0][variable_cations[0]] == combos[1][variable_cations[1]]):
-                combo = [combo for combo in combos if combo[least_electronegative_cation] > combo[most_electronegative_cation]][0]
+                combo = [combo for combo in combos if combo[least_electronegative_cation] >= combo[most_electronegative_cation]][0]
             else:
                 ideal_combos = [combo for combo in combos if combo[least_electronegative_cation] == np.max(list(combo.values())) if combo[most_electronegative_cation] == np.min(list(combo.values()))]
                 if len(ideal_combos) == 0:
@@ -662,9 +681,10 @@ class DoublePerovskiteStability(object):
         Returns:
             probability of perovskite based on tau (float)
         """
-        if math.isnan(self.tau):
+        tau = self.tau
+        if math.isnan(tau) or math.isinf(tau):
             return np.nan
-        X = [[self.tau]]
+        X = [[tau]]
         return clf.predict_proba(X)[0][1]    
 
 def main():
