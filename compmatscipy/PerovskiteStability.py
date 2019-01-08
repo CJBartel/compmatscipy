@@ -11,6 +11,8 @@ import math
 from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.data import atomic_electronegativities_data, shannon_revised_effective_ionic_radii_data
 
+
+
 def fixed_cation_oxidation_states():
     """
     Args:
@@ -43,7 +45,7 @@ def fixed_anion_oxidation_states():
     """
     minus_one = ['F', 'Cl', 'Br', 'I']
     minus_two = ['O', 'S', 'Se', 'Te']
-    minus_three = ['N']
+    minus_three = ['N', 'P', 'As', 'Sb']
     fixed_anions = minus_one + minus_two + minus_three
     data = {}
     for c in fixed_anions:
@@ -63,7 +65,7 @@ def allowed_anions():
         list of elements (str) that tau should be able to classify
             NOTE: only trained on ['O', 'F', 'Cl', 'Br', 'I']
     """
-    return ['O', 'S', 'Se', 'Te', 'F', 'Cl', 'Br', 'I', 'N']   
+    return ['O', 'S', 'Se', 'Te', 'F', 'Cl', 'Br', 'I', 'N', 'P', 'As', 'Sb']   
 
 def t(rA, rB, rX):
     """
@@ -352,10 +354,7 @@ class SinglePerovskiteStability(object):
         rA = cation_radii_at_each_site[A]['rA']
         rB = cation_radii_at_each_site[B]['rB']
         shannon = shannon_revised_effective_ionic_radii_data()
-        if X == 'N':
-            rX = shannon[X][str(nX)]['4']
-        else:
-            rX = shannon[X][str(nX)]['6']
+        rX = shannon[X][str(nX)]['6']
         return {'A' : {'el' : A,
                        'n' : nA,
                        'r' : rA},

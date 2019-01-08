@@ -97,6 +97,7 @@ def dos(calc_dir,
     Returns:
         matplotlib axes object
     """
+    set_rc_params()    
     if show == True:
         fig = plt.figure(figsize=(2.5,4))
         ax = plt.subplot(111)
@@ -107,7 +108,8 @@ def dos(calc_dir,
         normalization = VASPBasicAnalysis(calc_dir).params_from_outcar(num_params=['NELECT'], str_params=[])['NELECT']
     elif normalization == 'atom':
         normalization = VASPBasicAnalysis(calc_dir).nsites
-    occupied_up_to = Efermi + shift        
+    occupied_up_to = Efermi + shift    
+    dos_lw = 1    
     for element in what_to_plot:
         for spin in what_to_plot[element]['spins']:
             for orbital in what_to_plot[element]['orbitals']:
@@ -128,7 +130,7 @@ def dos(calc_dir,
                 populations = [d[E] for E in energies]
                 if smearing:
                     populations = gaussian_filter1d(populations, smearing)
-                ax = plt.plot(populations, energies, color=color, label=label, alpha=0.9)                
+                ax = plt.plot(populations, energies, color=color, label=label, alpha=0.9, lw=dos_lw)                
                 occ_energies = [E for E in energies if E <= occupied_up_to]
                 occ_populations = [d[E] for E in occ_energies]
                 ax = plt.fill_betweenx(occ_energies, occ_populations, color=color, alpha=0.2, lw=0)
@@ -157,6 +159,7 @@ def cohp(calc_dir,
         pairs_to_plot=['total'],
         colors_and_labels = {'total' : {'color' : 'black',
                                         'label' : 'total'}},
+        tdos=False,                                        
         xlim=(-0.5, 0.5), ylim=(-10, 4), 
         xticks=(False, []), yticks=(False, []),
         xlabel=r'$-COHP/e^-$', ylabel=r'$E-E_F\/(eV)$',
@@ -167,10 +170,10 @@ def cohp(calc_dir,
     """
     Args:
         calc_dir (str) - path to calculation with DOSCAR
-        what_to_plot (dict) - {element or 'total' (str) : {'spins' : list of spins to include ('summed', 'up', and or 'down'),
-                                                           'orbitals' : list of orbitals to include (str)}}
-        colors_and_labels (dict) - {element-spin-orbital (str) : {'color' : color (str),
-                                                                  'label' : label (str)}}
+        pairs_to_plot (list) - list of 'el1_el2' to plot and/or 'total'
+        colors_and_labels (dict) - {pair (str) : {'color' : color (str),
+                                                  'label' : label (str)}}
+        tdos (str or bool) - if not False, 'DOSCAR' or 'DOSCAR.losbter' to retrieve tDOS from
         xlim (tuple) - (xmin (float), xmax (float))
         ylim (tuple) - (ymin (float), ymax (float))
         xticks (tuple or False) - (xtick0, xtick1, ...) if not False
@@ -186,6 +189,7 @@ def cohp(calc_dir,
     Returns:
         matplotlib axes object
     """
+    set_rc_params()    
     if show == True:
         fig = plt.figure(figsize=(2.5,4))
         ax = plt.subplot(111)
@@ -193,7 +197,23 @@ def cohp(calc_dir,
         normalization = VASPBasicAnalysis(calc_dir).params_from_outcar(num_params=['NELECT'], str_params=[])['NELECT']
     elif normalization == 'atom':
         normalization = VASPBasicAnalysis(calc_dir).nsites
-    occupied_up_to = shift        
+    occupied_up_to = shift
+    dos_lw = 1
+    if isinstance(tdos, str):
+        d = VASPDOSAnalysis(calc_dir, doscar=tdos).energies_to_populations()
+        if 'lobster' not in tdos:
+            shift -= VASPBasicAnalysis(calc_dir).Efermi
+        d = ProcessDOS(d, shift=shift, normalization=normalization).energies_to_populations
+        energies = sorted(list(d.keys()))
+        populations = [d[E] for E in energies]
+        if smearing:
+            populations = gaussian_filter1d(populations, smearing)
+        color = 'black'
+        label = 'tDOS'
+        ax = plt.plot(populations, energies, color=color, label=label, alpha=0.9, lw=dos_lw)                
+        occ_energies = [E for E in energies if E <= occupied_up_to]
+        occ_populations = [d[E] for E in occ_energies]
+        ax = plt.fill_betweenx(occ_energies, gaussian_filter1d(occ_populations, smearing), color=color, alpha=0.2, lw=0)         
     for pair in pairs_to_plot:
         color = colors_and_labels[pair]['color']
         label = colors_and_labels[pair]['label']
@@ -206,7 +226,7 @@ def cohp(calc_dir,
         populations = [d[E] for E in energies]
         if smearing:
             populations = gaussian_filter1d(populations, smearing)
-        ax = plt.plot(populations, energies, color=color, label=label, alpha=0.9)                
+        ax = plt.plot(populations, energies, color=color, label=label, alpha=0.9, lw=dos_lw)                
         occ_energies = [E for E in energies if E <= occupied_up_to]
         occ_populations = [d[E] for E in occ_energies]
         ax = plt.fill_betweenx(occ_energies, gaussian_filter1d(occ_populations, smearing), color=color, alpha=0.2, lw=0)
@@ -227,49 +247,5 @@ def cohp(calc_dir,
         
     return ax
 
-def cohp_main():
-    calc_dir = os.path.join('tests', 'test_data', 'COHP')
-    d = LOBSTERAnalysis(calc_dir, lobster='COHPCAR.lobster').detailed_dos_dict(False)
-    pairs_to_plot = ['N_Zn', 'Mo_N']
-    print(pairs_to_plot)
-    colors = list(tableau_colors().keys())
-    colors_and_labels = {pairs_to_plot[i] : {'color' : colors[i],
-                                             'label' : pairs_to_plot[i]} for i in range(len(pairs_to_plot))}
-    cohp(calc_dir, pairs_to_plot, colors_and_labels, show=True)
-    return d
-
 if __name__ == '__main__':
-    set_rc_params()    
-    d = cohp_main()
-    
-    
-def dos_main():
-    calc_dir = os.path.join('tests', 'test_data', 'SCAN_geometry')
-    d = VASPDOSAnalysis(calc_dir).detailed_dos_dict(remake=False)
-    tableau = tableau_colors()
-    
-    spins = ['summed']
-    orbitals = ['p', 's']
-    what_to_plot = {'Cl' : {'spins' : spins,
-                               'orbitals' : orbitals},
-                    'Cs' : {'spins' : spins,
-                            'orbitals' : orbitals}}
-    colors_and_labels = {'Cl-summed-s' : {'color' : 'black',
-                                           'label' : 'Cl (s)'},
-                         'Cl-summed-p' : {'color' : 'gray',
-                                           'label' : 'Cl (p)'},
-                         'Cs-summed-s' : {'color' : 'red',
-                                           'label' : 'Cs (s)'},
-                         'Cs-summed-p' : {'color' : 'pink',
-                                           'label' : 'Cs (p)'}}
-
-    
-    xlim = [0, 0.1]
-    xticks, yticks = xlim, [-10, -8, -6, -4, -2, 0, 2, 4, 6]
-    ax = dos(calc_dir,
-             what_to_plot,
-             colors_and_labels,
-             xlim=xlim,
-             xticks=xticks, yticks=yticks,
-             show=True)
-    return d
+    return
