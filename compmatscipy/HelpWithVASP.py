@@ -1003,7 +1003,8 @@ class VASPAbsorptionAnalysis(object):
                                'alpha' : np.mean([xx, yy, zz])}
             return write_json(data, fjson)
         else:
-            return read_json(fjson)
+            d = read_json(fjson)
+            return {float(E) : d[E] for E in d}
         
 def main():
 #    calc_dir = os.path.join('tests', 'test_data', 'SCAN_geometry')
