@@ -10,7 +10,7 @@ import matplotlib as mpl
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.stats import linregress
-from compmatscipy.HelpWithVASP import VASPDOSAnalysis, ProcessDOS, VASPBasicAnalysis, LOBSTERAnalysis
+from compmatscipy.HelpWithVASP import VASPDOSAnalysis, ProcessDOS, VASPBasicAnalysis, LOBSTERAnalysis, VASPAbsorptionAnalysis
 import os
 
 def tableau_colors():
@@ -242,7 +242,6 @@ def cohp(calc_dir,
         ax = plt.legend(loc='upper right')
     if show == True:
         plt.show()
-        
     return ax
 
 def main():
