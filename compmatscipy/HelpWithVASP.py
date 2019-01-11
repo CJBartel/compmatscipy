@@ -447,6 +447,35 @@ class VASPBasicAnalysis(object):
             number (int) of ions in calculated structure
         """
         return np.sum(list(self.els_to_amts.values()))
+    
+    @property
+    def pseudopotentials(self):
+        """
+        returns dictionary of {el : {'pp' : pseudo (str), 
+                                     'name' : type of pseudo (str), 
+                                     'date' : date of pseudo (str), 
+                                     'nval' : number of valence electrons considered (float)}}
+        """
+        potcar = os.path.join(self.calc_dir, 'POTCAR')
+        idx_dict = self.idxs_to_els
+        pseudo_dict = {}
+        with open(potcar) as f:
+            count = 0
+            for line in f:
+                if 'VRHFIN' in line:
+                    el = line.split('=')[1].split(':')[0]                
+                if 'TITEL' in line:
+                    tmp_dict = {}
+                    line = line.split('=')[1].split(' ')
+                    tmp_dict['name'] = line[1]
+                    tmp_dict['pp'] = line[2]
+                    tmp_dict['date'] = line[3][:-1]
+                if 'ZVAL' in line:
+                    line = line.split(';')[1].split('=')[1].split('mass')[0]
+                    tmp_dict['nval'] = float(''.join([val for val in line if val != ' ']))
+                    pseudo_dict[el] = tmp_dict
+                    count += 1
+        return pseudo_dict    
               
     @property
     def Etot(self):
@@ -1006,11 +1035,149 @@ class VASPAbsorptionAnalysis(object):
             d = read_json(fjson)
             return {float(E) : d[E] for E in d}
         
+class VASPChargeAnalysis(object):
+    
+    def __init__(self, calc_dir):
+        self.calc_dir = calc_dir
+        
+    def bader(self, fjson=False, remake=False):
+        """
+        Args:
+            
+        Returns:
+            dictionary of {el (str) : {idx (int) : {charge (float)}}
+        """           
+        fbader = os.path.join(self.calc_dir, 'ACF.dat')
+        if not os.path.exists(fbader):
+            print('No Bader charge file...')
+            return        
+        if not fjson:
+            fjson = os.path.join(self.calc_dir, 'bader_charge.json')
+        if remake or not os.path.exists(fjson):
+            obj = VASPBasicAnalysis(self.calc_dir)
+            idx_to_els = obj.idxs_to_els
+            nsites = np.max(list(idx_to_els.keys()))
+            pseudos = obj.pseudopotentials            
+            data = {}
+            with open(fbader) as f:
+                count = 0
+                for line in f:
+                    count += 1
+                    if count < 3:
+                        continue
+                    if count > 3+nsites:
+                        break
+                    line = [v for v in line[:-1].split(' ') if v != '']
+                    idx, charge = int(line[0])-1, float(line[4])
+                    el = idx_to_els[idx]
+                    nval = pseudos[el]['nval']
+                    delta_charge = nval - charge
+                    data[idx] = {'el' : el,
+                                 'charge' : delta_charge}
+            new = {el : {} for el in list(set(idx_to_els.values()))}
+            for idx in data:
+                el = data[idx]['el']
+                new[el][idx] = data[idx]['charge']
+            return write_json(new, fjson)
+        else:
+            return read_json(fjson)
+        
+    def ddec(self, fjson=False, remake=False):
+        """
+        Args:
+            
+        Returns:
+            dictionary of {el (str) : {idx (int) : {charge (float)}}
+        """        
+        fddec = os.path.join(self.calc_dir, 'DDEC6_even_tempered_net_atomic_charges.xyz')
+        if not os.path.exists(fddec):
+            print('No DDEC6 charge file...')
+            return        
+        if not fjson:
+            fjson = os.path.join(self.calc_dir, 'ddec_charge.json')
+        if remake or not os.path.exists(fjson):
+            obj = VASPBasicAnalysis(self.calc_dir)  
+            idx_to_els = obj.idxs_to_els
+            nsites = np.max(list(idx_to_els.keys()))
+            data = {}            
+            with open(fddec) as f:
+                count = 0
+                charge_count = 1e6
+                for line in f:
+                    count += 1
+                    if 'net_charge' in line:
+                        charge_count = count
+                    if count >= charge_count + 1:
+                        line = [v for v in line[:-1].split(' ') if v != '']
+                        idx, delta_charge = int(line[0])-1, float(line[5])
+                        el = idx_to_els[idx]
+                        data[idx] = {'el' : el,
+                                     'charge' : delta_charge}
+                    if count > charge_count + nsites:
+                        break
+            new = {el : {} for el in list(set(idx_to_els.values()))}
+            for idx in data:
+                el = data[idx]['el']
+                new[el][idx] = data[idx]['charge']
+            return write_json(new, fjson)
+        else:
+            return read_json(fjson)
+        
+    def bonds(self, fjson=False, remake=False):
+        """
+        Args:
+            
+        Returns:
+            dictionary of {el (str) : {idx (int) : {'ebos' : {partner_el-partner_idx : ebo (float)},
+                                                    'sbo' : summed bond order (float)}}}
+        """
+        fbonds = os.path.join(self.calc_dir, 'DDEC6_even_tempered_bond_orders.xyz')
+        if not os.path.exists(fbonds):
+            print('No DDEC6 bonds file...')
+            return        
+        if not fjson:
+            fjson = os.path.join(self.calc_dir, 'ddec_bonds.json')
+        if remake or not os.path.exists(fjson):
+            obj = VASPBasicAnalysis(self.calc_dir)
+            idx_to_els = obj.idxs_to_els
+            nsites = np.max(list(idx_to_els.keys()))
+            data = {}            
+            idx = -1
+            with open(fbonds) as f:
+                count = 0
+                for line in f:
+                    count += 1
+                    if 'Printing EBOs' in line:
+                        idx += 1
+                        el = idx_to_els[idx]
+                        tmp = {'el' : el}
+                    if 'sum of bond orders for this atom' in line:
+                        sbo = float([v for v in line[:-1].split('=')[1].split(' ') if v != ''][0])
+                        tmp['sbo'] = sbo
+                    if 'Bonded to the' in line:
+                        ebo = float([v for v in line[:-1].split('=')[1].split(' ') if v != ''][0])
+                        ebo_partner_idx = int([v for v in line.split('translated image of atom number')[1].split('with')[0].split(' ') if v not in ['(', ')', '']][0]) - 1
+                        ebo_partner_el = idx_to_els[ebo_partner_idx]
+                        tag = '-'.join([ebo_partner_el, str(ebo_partner_idx)])
+                        if 'ebos' not in tmp:
+                            tmp['ebos'] = {}
+                        if tag not in tmp['ebos']:
+                            tmp['ebos'][tag] = ebo
+                        else:
+                            tmp['ebos'][tag] += ebo
+                    if idx >= 0:
+                        data[idx] = tmp
+            new = {el : {} for el in list(set(idx_to_els.values()))}
+            for idx in data:
+                el = data[idx]['el']
+                new[el][idx] = {'ebos' : data[idx]['ebos'],
+                                'sbo' : data[idx]['sbo']}
+            return write_json(new, fjson)
+        else:
+            return read_json(fjson)
+                
 def main():
-#    calc_dir = os.path.join('tests', 'test_data', 'SCAN_geometry')
-#    calc_dir = os.path.join('..', '..', 'misc', 'calcium_nitride_cohps', 'Ca2N1')
-#    return VASPDOSAnalysis(calc_dir, doscar='DOSCAR.lobster').detailed_dos_dict(remake=True)
     return
 
 if __name__ == '__main__':
-    d = main()
+    main()
