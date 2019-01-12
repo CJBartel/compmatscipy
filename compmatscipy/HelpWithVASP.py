@@ -463,7 +463,7 @@ class VASPBasicAnalysis(object):
             count = 0
             for line in f:
                 if 'VRHFIN' in line:
-                    el = line.split('=')[1].split(':')[0].strip()                
+                    el = line.split('=')[1].split(':')[0].strip()
                 if 'TITEL' in line:
                     tmp_dict = {}
                     line = line.split('=')[1].split(' ')
