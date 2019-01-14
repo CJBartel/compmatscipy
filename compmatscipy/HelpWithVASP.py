@@ -64,7 +64,10 @@ class VASPSetUp(object):
             d['LHFCALC'] = 'TRUE'
             d['ALGO'] = 'Damped'
             d['TIME'] = 0.4
-            
+            d['HFSCREEN'] = 0.2
+        else:
+            print('are you sure you want that functional?')
+            return np.nan
         if dos == True:
             d['NEDOS'] = 2500
         
