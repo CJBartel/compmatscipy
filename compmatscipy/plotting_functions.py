@@ -74,7 +74,8 @@ def dos(calc_dir,
         legend=True,
         smearing=0.2,
         shift='Fermi', normalization='electron',
-        show=False):
+        show=False,
+        enforce_insulation=False):
     """
     Args:
         calc_dir (str) - path to calculation with DOSCAR
@@ -136,8 +137,6 @@ def dos(calc_dir,
                 if smearing:
                     occ_populations = gaussian_filter1d(occ_populations, smearing)                
                 ax = plt.fill_betweenx(occ_energies, occ_populations, color=color, alpha=0.2, lw=0)
-    ax = plt.xlim(xlim)
-    ax = plt.ylim(ylim)
     ax = plt.xticks(xticks[1])
     ax = plt.yticks(yticks[1])
     if not xticks[0]:
@@ -146,6 +145,8 @@ def dos(calc_dir,
         ax = plt.gca().yaxis.set_ticklabels([])
     ax = plt.xlabel(xlabel)
     ax = plt.ylabel(ylabel)
+    ax = plt.xlim(xlim)
+    ax = plt.ylim(ylim)    
     if legend == True:
         ax = plt.legend(loc='upper right')
     if show == True:
@@ -228,8 +229,6 @@ def cohp(calc_dir,
         occ_energies = [E for E in energies if E <= occupied_up_to]
         occ_populations = [d[E] for E in occ_energies]
         ax = plt.fill_betweenx(occ_energies, gaussian_filter1d(occ_populations, smearing), color=color, alpha=0.2, lw=0)
-    ax = plt.xlim(xlim)
-    ax = plt.ylim(ylim)
     ax = plt.xticks(xticks[1])
     ax = plt.yticks(yticks[1])
     if not xticks[0]:
@@ -238,6 +237,8 @@ def cohp(calc_dir,
         ax = plt.gca().yaxis.set_ticklabels([])
     ax = plt.xlabel(xlabel)
     ax = plt.ylabel(ylabel)
+    ax = plt.xlim(xlim)
+    ax = plt.ylim(ylim)    
     if legend == True:
         ax = plt.legend(loc='upper right')
     if show == True:
