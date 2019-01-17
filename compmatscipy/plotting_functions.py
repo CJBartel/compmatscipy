@@ -109,7 +109,7 @@ def dos(calc_dir,
         normalization = VASPBasicAnalysis(calc_dir).params_from_outcar(num_params=['NELECT'], str_params=[])['NELECT']
     elif normalization == 'atom':
         normalization = VASPBasicAnalysis(calc_dir).nsites
-    occupied_up_to = Efermi + shift    
+    occupied_up_to = Efermi + shift
     dos_lw = 1    
     for element in what_to_plot:
         for spin in what_to_plot[element]['spins']:
@@ -128,15 +128,20 @@ def dos(calc_dir,
                                flip_sign=flip_sign,
                                normalization=normalization).energies_to_populations
                 energies = sorted(list(d.keys()))
-                populations = [d[E] for E in energies]
-                if smearing:
-                    populations = gaussian_filter1d(populations, smearing)
-                ax = plt.plot(populations, energies, color=color, label=label, alpha=0.9, lw=dos_lw)                
                 occ_energies = [E for E in energies if E <= occupied_up_to]
                 occ_populations = [d[E] for E in occ_energies]
+                occ_energies += [occupied_up_to]
+                occ_populations += [0]
                 if smearing:
-                    occ_populations = gaussian_filter1d(occ_populations, smearing)                
-                ax = plt.fill_betweenx(occ_energies, occ_populations, color=color, alpha=0.2, lw=0)
+                    occ_populations = gaussian_filter1d(occ_populations, smearing)
+                ax = plt.plot(occ_populations, occ_energies, color=color, label=label, alpha=0.9, lw=dos_lw)                                    
+                ax = plt.fill_betweenx(occ_energies, occ_populations, color=color, alpha=0.2, lw=0, label='__nolegend__')
+                unocc_energies = [E for E in energies if E > occupied_up_to]
+                unocc_populations = [d[E] for E in unocc_energies]
+                if smearing:
+                    unocc_populations = gaussian_filter1d(unocc_populations, smearing)
+                ax = plt.plot(unocc_populations, unocc_energies, color=color, label='__nolegend__', alpha=0.9, lw=dos_lw)                                    
+                
     ax = plt.xticks(xticks[1])
     ax = plt.yticks(yticks[1])
     if not xticks[0]:
