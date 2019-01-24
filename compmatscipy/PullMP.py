@@ -1,13 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 11 21:51:20 2018
-
-@author: Chris
-"""
-
 import os, json
 import pandas as pd
-import json
 import requests
 from pymatgen.ext.matproj import MPRester
 from pymatgen.io.vasp.inputs import  Poscar

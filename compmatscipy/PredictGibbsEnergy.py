@@ -1,17 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Dec 12 14:52:32 2018
-
-@author: Chris
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Tue May 15 14:55:39 2018
-
-@author: Chris
-"""
-
 import numpy as np
 from itertools import combinations
 import math
@@ -34,6 +20,9 @@ class PredictGibbsEnergy(object):
             formula (str) - chemical formula (can be poorly formatted)
             H (float) - formation enthalpy at 0 or 298 K [eV/atom]
             V (float) - volume per atom of calculated structure [A**3/atom]
+            
+        Returns:
+            formula, H, V
         """
         self.formula = formula        
         self.H = H
@@ -42,6 +31,8 @@ class PredictGibbsEnergy(object):
     @property
     def els(self):
         """
+        Args:
+            
         Returns:
             sorted list of elements (str)
         """
@@ -50,14 +41,18 @@ class PredictGibbsEnergy(object):
     @property
     def amts(self):
         """
+        Args:
+            
         Returns:
-            number of each element in the standardized formula (int) in the order of self.els
+            number of each element in the standardized formula (int) in the order of self.els, which is alphabetical
         """    
         return CompAnalyzer(self.formula).amts()
         
     @property
     def m(self):
         """
+        Args:
+            
         Returns:
             reduced mass (float)
         """
@@ -94,6 +89,7 @@ class PredictGibbsEnergy(object):
         """
         Args:
             T (int) - temperature [K]
+            
         Returns:
             G^delta as predicted by SISSO-learned descriptor (float) [eV/atom]
         """
@@ -108,6 +104,7 @@ class PredictGibbsEnergy(object):
         """
         Args:
             T (int) - temperature [K]
+            
         Returns:
             sum of the stoichiometrically weighted chemical potentials of the elements at T (float) [eV/atom]
         """
@@ -123,10 +120,11 @@ class PredictGibbsEnergy(object):
             els_sum += num*Gi
         return els_sum
     
-    def G(self, T, vol_per_atom=False):
+    def G(self, T):
         """
         Args:
             T (int) - temperature [K]
+
         Returns:
             Absolute Gibbs energy at T using SISSO-learned descriptor for G^delta (float) [eV/atom]
         """
@@ -141,6 +139,7 @@ class PredictGibbsEnergy(object):
         """
         Args:
             T (int) - temperature [K]
+        
         Returns:
             Gibbs formation energy at T using SISSO-learned descriptor for G^delta (float) [eV/atom]
         """

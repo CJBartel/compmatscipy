@@ -5,10 +5,7 @@ Created on Tue Dec 11 21:45:30 2018
 @author: Chris
 """
 
-import sys, os, unittest
-path_to_utilities = os.path.join('..', 'utilities')
-if path_to_utilities not in sys.path:
-    sys.path.append(path_to_utilities)
+import os, unittest
 from compmatscipy.HullAnalysis import GetHullInputData, AnalyzeHull
 from compmatscipy.handy_functions import read_json, write_json
 from compmatscipy.CompAnalyzer import CompAnalyzer

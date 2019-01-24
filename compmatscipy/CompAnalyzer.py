@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 11 12:19:26 2018
-
-@author: Chris
-"""
-from __future__ import absolute_import
 import re
 from itertools import combinations
 import numpy as np
@@ -19,6 +12,7 @@ class CompAnalyzer(object):
         """
         Args:
             formula (str) - chemical composition
+        
         Returns:
             
         """
@@ -43,6 +37,7 @@ class CompAnalyzer(object):
         """
         Args:
             formula_piece (str) - subset or all of chemical composition
+        
         Returns:
             {element (str) : number of that element in formula_piece (int)}
         """
@@ -61,6 +56,7 @@ class CompAnalyzer(object):
         """
         Args:
             formula (str) - chemical composition that may or may not be one formula unit
+        
         Returns:
             chemical composition (str) that is exactly one formula unit
         """
@@ -79,6 +75,7 @@ class CompAnalyzer(object):
         """
         Args:
             reduce (bool) - the final formula should be exactly one formula unit (True) or may be as inputted (False)
+        
         Returns:
             standardized chemical formula (str)
         """
@@ -128,8 +125,9 @@ class CompAnalyzer(object):
         """
         Args:
             reduce (bool) - the final formula should be exactly one formula unit (True) or may be as inputted (False)
+        
         Returns:
-            number of each element in the standardized formula (int) in the order of self.els
+            number of each element in the standardized formula (int) in the order of self.els, which is alphabetical
         """
         return [int(v) for v in re.findall('\d+', self.std_formula(reduce))]
                 
@@ -147,6 +145,7 @@ class CompAnalyzer(object):
         """
         Args:
             reduce (bool) - the final formula should be exactly one formula unit (True) or may be as inputted (False)
+        
         Returns:
             total number of atoms in the formula
         """        
@@ -158,7 +157,7 @@ class CompAnalyzer(object):
         Args:
 
         Returns:
-            fraction of each element in the standardized formula (int) in the order of self.els
+            fraction of each element in the standardized formula (int) in the order of self.els, which is alphabetical
         """        
         amts = self.amts()
         atoms_in_formula = self.num_atoms_in_formula()
@@ -169,6 +168,7 @@ class CompAnalyzer(object):
         Args:
             el (str) - element to check for amount of
             reduce (bool) - the final formula should be exactly one formula unit (True) or may be as inputted (False)
+        
         Returns:
             the amount (int) of el in the formula
         """
@@ -182,6 +182,7 @@ class CompAnalyzer(object):
         """
         Args:
             el (str) - element to check for fractional amount of
+        
         Returns:
             the fractional amount (float) of el in the formula
         """        

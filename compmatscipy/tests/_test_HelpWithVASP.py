@@ -5,7 +5,7 @@ Created on Wed Dec 19 19:07:33 2018
 @author: Chris
 """
 
-import sys, os, unittest
+import os, unittest
 from compmatscipy.HelpWithVASP import VASPSetUp, VASPBasicAnalysis, VASPDOSAnalysis, LOBSTERAnalysis, ProcessDOS
 
 test_dir = os.path.join(os.path.dirname(__file__))
@@ -61,7 +61,7 @@ class UnitTestHelpWithVASP(unittest.TestCase):
         
     def test_tdos_detailed(self):
         calc = calcs()['SCAN_geometry']
-        d = VASPDOSAnalysis(calc).detailed_dos_dict(fjson='test_dos.json', remake=True)
+        d = VASPDOSAnalysis(calc).detailed_dos_dict(fjson=os.path.join(test_data_dir, 'test_dos.json'), remake=True)
         total_line = '-6.203  0.1125E-04  0.1126E-04  0.1600E-01  0.1600E-01'
         total_line = [float(v) for v in total_line.split(' ') if v != '']
         energy, up, down, intup, intdown = total_line

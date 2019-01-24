@@ -1,14 +1,15 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 11 22:04:40 2018
-
-@author: Chris
-"""
-
 import json, os
 import numpy as np
 
 def make_directory_tree(path_to_make, sep='/'):
+    """
+    Args:
+        path_to_make (str) - relative path of directory to make
+        sep (str) - os-dependent path separator
+    
+    Returns:
+        None (makes directory of interest)
+    """
     path_pieces = path_to_make.split(sep)
     for i in range(len(path_pieces)):
         parent = sep.join(path_pieces[:i+1])
@@ -19,6 +20,7 @@ def read_json(fjson):
     """
     Args:
         fjson (str) - file name of json to read
+    
     Returns:
         dictionary stored in fjson
     """
@@ -30,6 +32,7 @@ def write_json(d, fjson):
     Args:
         d (dict) - dictionary to write
         fjson (str) - file name of json to write
+    
     Returns:
         written dictionary
     """        
@@ -42,6 +45,7 @@ def gcd(a,b):
     Args:
         a (float, int) - some number
         b (float, int) - another number
+    
     Returns:
         greatest common denominator (int) of a and b
     """
@@ -53,10 +57,11 @@ def list_of_dicts_to_dict(l, major_key, other_keys):
     """
     Args:
         l (list) - list of dictionaries
-        major_key - key to orient output dictionary on
-        other_keys (list) - list of keys to include in output dictionary
+        major_key (tuple, str, float, int) - key to orient output dictionary on
+        other_keys (list) - list of keys (tuple, str, float, int) to include in output dictionary
+    
     Returns:
-        dictionary of information in l
+        dictionary representation of information in l
     """
     return {d[major_key] : {other_key : d[other_key] for other_key in other_keys} for d in l}
 
@@ -67,6 +72,7 @@ def H_from_E(els_to_amts, E, mus):
         formula (str) - chemical formula
         E (float) - total energy per atom
         mus (dict) - {el (str) : elemental energy (float)}
+    
     Returns:
         formation energy per atom (float)
     """
@@ -81,6 +87,8 @@ def get_q(f_qstat='qstat.txt', f_jobs='qjobs.txt', username='cbartel'):
     Args:
         f_qstat (str) - path to write detailed queue information
         f_jobs (str) - path to write job IDs
+        username (str) - user name on HPC
+    
     Returns:
         list of job IDs in the queue (str)
     """

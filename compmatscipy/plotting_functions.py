@@ -1,17 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jan  4 11:26:39 2019
-
-@author: Chris
-"""
-
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.stats import linregress
-from compmatscipy.HelpWithVASP import VASPDOSAnalysis, ProcessDOS, VASPBasicAnalysis, LOBSTERAnalysis, VASPAbsorptionAnalysis
-import os
+from compmatscipy.HelpWithVASP import VASPDOSAnalysis, ProcessDOS, VASPBasicAnalysis, LOBSTERAnalysis
 
 def tableau_colors():
     """
@@ -85,8 +77,8 @@ def dos(calc_dir,
                                                                   'label' : label (str)}}
         xlim (tuple) - (xmin (float), xmax (float))
         ylim (tuple) - (ymin (float), ymax (float))
-        xticks (tuple or False) - (xtick0, xtick1, ...) if not False
-        yticks (tuple or False) - (ytick0, ytick1, ...) if not False
+        xticks (tuple) - (bool to show label or not, (xtick0, xtick1, ...))
+        yticks (tuple) - (bool to show label or not, (ytick0, ytick1, ...))
         xlabel (str) - x-axis label
         ylabel (str) - y-axis label
         legend (bool) - include legend or not
@@ -141,7 +133,6 @@ def dos(calc_dir,
                 if smearing:
                     unocc_populations = gaussian_filter1d(unocc_populations, smearing)
                 ax = plt.plot(unocc_populations, unocc_energies, color=color, label='__nolegend__', alpha=0.9, lw=dos_lw)                                    
-                
     ax = plt.xticks(xticks[1])
     ax = plt.yticks(yticks[1])
     if not xticks[0]:
@@ -152,25 +143,24 @@ def dos(calc_dir,
     ax = plt.ylabel(ylabel)
     ax = plt.xlim(xlim)
     ax = plt.ylim(ylim)    
-    if legend == True:
+    if legend:
         ax = plt.legend(loc='upper right')
-    if show == True:
+    if show:
         plt.show()
-        
     return ax
 
 def cohp(calc_dir,
-        pairs_to_plot=['total'],
-        colors_and_labels = {'total' : {'color' : 'black',
-                                        'label' : 'total'}},
-        tdos=False,                                        
-        xlim=(-0.5, 0.5), ylim=(-10, 4), 
-        xticks=(False, [-0.5, 0.5]), yticks=(False, [-10, 4]),
-        xlabel=r'$-COHP/e^-$', ylabel=r'$E-E_F\/(eV)$',
-        legend=True,
-        smearing=1,
-        shift=0, normalization='electron',
-        show=False):
+         pairs_to_plot=['total'],
+         colors_and_labels = {'total' : {'color' : 'black',
+                                         'label' : 'total'}},
+         tdos=False,                                        
+         xlim=(-0.5, 0.5), ylim=(-10, 4), 
+         xticks=(False, [-0.5, 0.5]), yticks=(False, [-10, 4]),
+         xlabel=r'$-COHP/e^-$', ylabel=r'$E-E_F\/(eV)$',
+         legend=True,
+         smearing=1,
+         shift=0, normalization='electron',
+         show=False):
     """
     Args:
         calc_dir (str) - path to calculation with DOSCAR
@@ -180,8 +170,8 @@ def cohp(calc_dir,
         tdos (str or bool) - if not False, 'DOSCAR' or 'DOSCAR.losbter' to retrieve tDOS from
         xlim (tuple) - (xmin (float), xmax (float))
         ylim (tuple) - (ymin (float), ymax (float))
-        xticks (tuple or False) - (xtick0, xtick1, ...) if not False
-        yticks (tuple or False) - (ytick0, ytick1, ...) if not False
+        xticks (tuple) - (bool to show label or not, (xtick0, xtick1, ...))
+        yticks (tuple) - (bool to show label or not, (ytick0, ytick1, ...))
         xlabel (str) - x-axis label
         ylabel (str) - y-axis label
         legend (bool) - include legend or not
@@ -244,9 +234,9 @@ def cohp(calc_dir,
     ax = plt.ylabel(ylabel)
     ax = plt.xlim(xlim)
     ax = plt.ylim(ylim)    
-    if legend == True:
+    if legend:
         ax = plt.legend(loc='upper right')
-    if show == True:
+    if show:
         plt.show()
     return ax
 

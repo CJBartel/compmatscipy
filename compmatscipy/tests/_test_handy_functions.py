@@ -6,9 +6,6 @@ Created on Wed Dec 12 13:35:33 2018
 """
 
 import unittest, sys, os
-path_to_utilities = os.path.join('..', 'utilities')
-if path_to_utilities not in sys.path:
-    sys.path.append(path_to_utilities)
 from compmatscipy.handy_functions import gcd, list_of_dicts_to_dict, H_from_E
 
 class UnitTestHandyFunctions(unittest.TestCase):

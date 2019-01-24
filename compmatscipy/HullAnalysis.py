@@ -1,11 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 11 15:50:17 2018
-
-@author: Chris
-"""
-
-import sys, os, json
+import os
 import numpy as np
 from scipy.spatial import ConvexHull
 from scipy.optimize import fmin_slsqp, minimize
@@ -23,8 +16,9 @@ class GetHullInputData(object):
         Args:
             compound_to_energy (dict) - {formula (str) : {formation_energy_key (str) : formation energy (float)}}
             formation_energy_key (str) - key within compound_to_energy to use for formation energy
+        
         Returns:
-            
+            dictionary of {formula (str) : formation energy (float)}
         """
         self.compound_to_energy = {k : compound_to_energy[k][formation_energy_key] for k in compound_to_energy}
         
@@ -44,7 +38,7 @@ class GetHullInputData(object):
         Args:
             
         Returns:
-            list of unique chemical spaces (set)
+            list of unique chemical spaces (tuple)
         """
         compounds = self.compounds
         return list(set([tuple(CompAnalyzer(c).els) for c in compounds]))
@@ -82,7 +76,7 @@ class GetHullInputData(object):
         chemical_subspaces = self.chemical_subspaces
         return [s for s in chemical_spaces_and_subspaces if s not in chemical_subspaces]
     
-    def hull_data(self, fjson, remake=False):
+    def hull_data(self, fjson=False, remake=False):
         """
         Args:
             fjson (str) - file name to write hull data to
@@ -95,6 +89,8 @@ class GetHullInputData(object):
                 elements are automatically given formation energy = 0
                 chemical space is now in 'el1_el2_...' format to be jsonable
         """
+        if not fjson:
+            fjson = 'hull_input_data.json'
         if (remake == True) or not os.path.exists(fjson):
             hull_data = {}
             hull_spaces = self.hull_spaces
@@ -122,10 +118,11 @@ class AnalyzeHull(object):
         """
         Args:
             hull_data (dict) - dictionary generated in GetHullInputData().hull_data
-            chemical_space (str) - chemical space to analyze in 'el1_el2_...' format
+            chemical_space (str) - chemical space to analyze in 'el1_el2_...' (alphabetized) format
+        
         Returns:
             grabs only the relevant sub-dict from hull_data
-            changes chemical space to tuple(el1, el2, ...)
+            changes chemical space to tuple (el1, el2, ...)
         """
         self.hull_data = hull_data[chemical_space]
         self.chemical_space = tuple(chemical_space.split('_'))
@@ -145,8 +142,9 @@ class AnalyzeHull(object):
         Args:
             compounds (str or list) - if 'all', use all compounds; else use specified list
             chemical_space - if 'all', use entire space; else use specified tuple
+        
         Returns:
-            matrix with the fractional composition of each element in each compound (float)
+            matrix (2D array) with the fractional composition of each element in each compound (float)
                 each row is a different compound (ordered going down alphabetically)
                 each column is a different element (ordered across alphabetically)
         """
@@ -167,6 +165,7 @@ class AnalyzeHull(object):
         """
         Args:
             compounds (str or list) - if 'all', use all compounds; else use specified list
+        
         Returns:
             array of formation energies (float) for each compound ordered alphabetically
         """        
@@ -180,6 +179,7 @@ class AnalyzeHull(object):
         Args:
             compounds (str or list) - if 'all', use all compounds; else use specified list
             chemical_space - if 'all', use entire space; else use specified tuple
+        
         Returns:
             amts_matrix, but replacing the last column with the formation energy
         """        
@@ -198,7 +198,7 @@ class AnalyzeHull(object):
         Args:
             
         Returns:
-            ConvexHull object
+            scipy.spatial.ConvexHull object
         """
         return ConvexHull(self.hull_input_matrix(compounds='all', chemical_space='all'))
     
@@ -208,7 +208,7 @@ class AnalyzeHull(object):
         Args:
             
         Returns:
-            array of points (tup) fed to ConvexHull
+            array of points (tuple) fed to ConvexHull
         """        
         return self.hull.points
     
@@ -251,6 +251,7 @@ class AnalyzeHull(object):
         """
         Args:
             compound (str) - the compound (str) to analyze
+        
         Returns:
             list of compounds (str) that may participate in the decomposition reaction for the input compound
         """
@@ -265,8 +266,9 @@ class AnalyzeHull(object):
         Args:
             compound (str) - the compound (str) to analyze
             competing_compounds (list) - list of compounds (str) that may participate in the decomposition reaction for the input compound
+        
         Returns:
-            matrix of elemental amounts (float) used for implementing molar conservation during decomposition solution
+            matrix (2D array) of elemental amounts (float) used for implementing molar conservation during decomposition solution
         """
         chemical_space = tuple(CompAnalyzer(compound).els)
         atoms_per_fu = [CompAnalyzer(c).num_atoms_in_formula() for c in competing_compounds]
@@ -281,6 +283,7 @@ class AnalyzeHull(object):
         Args:
             compound (str) - the compound (str) to analyze
             competing_compounds (list) - list of compounds (str) that may participate in the decomposition reaction for the input compound
+       
         Returns:
             array of elemental amounts (float) used for implementing molar conservation during decomposition solution
         """        
@@ -292,8 +295,9 @@ class AnalyzeHull(object):
         Args:
             compound (str) - the compound (str) to analyze
             competing_compounds (list) - list of compounds (str) that may participate in the decomposition reaction for the input compound
+        
         Returns:
-            array of formation energies per formula unit (float) used for minimization problem
+            array of formation energies per formula unit (float) used for minimization problem during decomposition solution
         """     
         atoms_per_fu = [CompAnalyzer(c).num_atoms_in_formula() for c in competing_compounds]        
         Es_per_atom = self.formation_energy_array(competing_compounds)    
@@ -303,9 +307,10 @@ class AnalyzeHull(object):
         """
         Args:
             compound (str) - the compound (str) to analyze
+        
         Returns:
             scipy.optimize.minimize result 
-                for finding the linear combination of competing compounds that minimizes the competing enthalpy
+                for finding the linear combination of competing compounds that minimizes the competing formation energy
         """        
         competing_compounds = self.competing_compounds(compound)
         A = self.A_for_decomp_solver(compound, competing_compounds)
@@ -317,7 +322,7 @@ class AnalyzeHull(object):
             nj = np.array(nj)
             return np.dot(nj, Es)
         constraints = [{'type' : 'eq',
-                       'fun' : lambda x: np.dot(A, x)-b}]
+                        'fun' : lambda x: np.dot(A, x)-b}]
         tol, maxiter, disp = 1e-4, 1000, False
         return minimize(competing_formation_energy,n0,
                      method='SLSQP',bounds=bounds,
@@ -329,6 +334,7 @@ class AnalyzeHull(object):
         """
         Args:
             compound (str) - the compound (str) to analyze
+        
         Returns:
             dictionary of {competing compound (str) : {'amt' : stoich weight in decomp rxn (float),
                                                        'E' : formation energy (float)}
@@ -363,6 +369,7 @@ class AnalyzeHull(object):
         """
         Args:
             compound (str) - the compound (str) to analyze
+        
         Returns:
             decomposition energy (float)
         """

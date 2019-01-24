@@ -1,17 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Dec 13 15:08:43 2018
-
-@author: Chris
-"""
-
 import numpy as np
 from itertools import combinations, product
 import math
 from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.data import atomic_electronegativities_data, shannon_revised_effective_ionic_radii_data
-
-
 
 def fixed_cation_oxidation_states():
     """
@@ -73,6 +64,7 @@ def t(rA, rB, rX):
         rA (float) - ionic radius of A-site
         rB (float) - ionic radius of B-site
         rX (float) - ionic radius of X-site
+    
     Returns:
         Goldschmidt's tolerance factor (float)
     """
@@ -85,6 +77,7 @@ def tau(nA, rA, rB, rX):
         rA (float) - ionic radius of A-site
         rB (float) - ionic radius of B-site
         rX (float) - ionic radius of X-site
+   
     Returns:
         Bartel's tolerance factor (float)
     """    
@@ -94,12 +87,12 @@ class SinglePerovskiteStability(object):
     """
     Predict the formability of a given ABX3 compound
     """
-    
     def __init__(self, user_input):
         """
         Args:
             user_input (str or dict) - if str, input as ABX3; else input as {'A' : A-site, 'B' : B-site, 'X' : X-site}
                 NOTE: this script will switch A and B to enforce rA > rB
+        
         Returns:
             user_input if valid; else np.nan
         """
@@ -400,6 +393,8 @@ class SinglePerovskiteStability(object):
         """
         Args:
             clf (sklearn object) - calibrated classifier based on tau
+                obtainable from compmatscipy.data.calibrated_tau_prob_clf
+        
         Returns:
             probability of perovskite based on tau (float)
         """
@@ -410,12 +405,15 @@ class SinglePerovskiteStability(object):
         return clf.predict_proba(X)[0][1] 
     
 class DoublePerovskiteStability(object):
-    
+    """
+    Predict the stability of a given AA'BB'(XX')3 compound where A can = A', B can = B', and X can = X'
+    """    
     def __init__(self, user_input):
         """
         Args:
             user_input (dict) - dictionary of A, B, and X sites {'A' : A_element (str), ...}; 
                 if two ions are present on a site, specify as e.g., A1, A2
+        
         Returns:
             {A1, A2, B1, B2, X1, X2 : the element on that site (str)}
         """
@@ -677,6 +675,8 @@ class DoublePerovskiteStability(object):
         """
         Args:
             clf (sklearn object) - calibrated classifier based on tau
+                obtainable from compmatscipy.data.calibrated_tau_prob_clf
+        
         Returns:
             probability of perovskite based on tau (float)
         """
@@ -684,7 +684,7 @@ class DoublePerovskiteStability(object):
         if math.isnan(tau) or math.isinf(tau):
             return np.nan
         X = [[tau]]
-        return clf.predict_proba(X)[0][1]    
+        return clf.predict_proba(X)[0][1] 
 
 def main():
     return

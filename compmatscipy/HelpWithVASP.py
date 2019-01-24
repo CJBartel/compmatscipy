@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 18 14:31:56 2018
-
-@author: Chris
-"""
-
 import os
 from shutil import copyfile
 import numpy as np
@@ -13,6 +6,9 @@ from compmatscipy.handy_functions import read_json, write_json
 from scipy.integrate import simps
 
 class VASPSetUp(object):
+    """
+    Helps set up VASP calculations
+    """
     
     def __init__(self, calc_dir):
         """
@@ -24,25 +20,28 @@ class VASPSetUp(object):
         """
         self.calc_dir = calc_dir
         
-    def incar(self, is_geometry_opt=False, functional='pbe', dos=False, dielectric=False, standard={'EDIFF' : 1e-6,
-                                                                                                    'ISMEAR' : 0,
-                                                                                                    'SIGMA' : 0.01,
-                                                                                                    'ENCUT' : 520,
-                                                                                                    'PREC' : 'Accurate',
-                                                                                                    'LORBIT' : 11,
-                                                                                                    'LASPH' : 'TRUE',
-                                                                                                    'ISIF' : 3}, additional={}):
+    def incar(self, is_geometry_opt=False, functional='pbe', dos=False, dielectric=False, mag=False,
+                    standard={'EDIFF' : 1e-6,
+                              'ISMEAR' : 0,
+                              'SIGMA' : 0.01,
+                              'ENCUT' : 520,
+                              'PREC' : 'Accurate',
+                              'LORBIT' : 11,
+                              'LASPH' : 'TRUE',
+                              'ISIF' : 3}, 
+                    additional={}):
         """
         Args:
-            is_geometry_opt (bool) - True if geometry is optimized; else False
-            functional (str) - 'pbe', 'scan', or 'hse'
+            is_geometry_opt (bool) - True if geometry is to be optimized
+            functional (str) - 'pbe' (PBE), 'scan' (SCAN), or 'hse' (HSE06)
             dos (bool) - True if accurate DOS desired
             dielectric (bool) - True if LOPTICS on
+            mag (bool) - True if spin-polarized calculation
             standard (dict) - dictionary of parameters for starting point in INCAR
             additional (dict) - dictionary of parameters to enforce in INCAR
         
         Returns:
-            writes INCAR file
+            writes INCAR file to calc_dir; returns dictionary of INCAR settings
         """
         d = {}
         
@@ -67,7 +66,8 @@ class VASPSetUp(object):
             d['HFSCREEN'] = 0.2
         else:
             print('are you sure you want that functional?')
-            return np.nan
+            d = np.nan
+            
         if dos == True:
             d['NEDOS'] = 2500
         
@@ -80,6 +80,13 @@ class VASPSetUp(object):
         
         for k in additional:
             d[k] = additional[k]
+            
+        if mag:
+            if 'ISPIN' not in d:
+                d['ISPIN'] = 2
+            if 'MAGMOM' not in d:
+                print('you specified magnetic calculation, but didnt specify a MAGMOM')
+                d = np.nan
             
         fincar = os.path.join(self.calc_dir, 'INCAR')
         with open(fincar, 'w') as f:
@@ -94,7 +101,7 @@ class VASPSetUp(object):
             grid (int) - False if discretizations to be specified; else tuple of ints for grid
             
         Returns:
-            writes KPOINTS file
+            writes KPOINTS file to calc_dir
         """
         fkpoints = os.path.join(self.calc_dir, 'KPOINTS')
         with open(fkpoints, 'w') as f:
@@ -115,7 +122,7 @@ class VASPSetUp(object):
     def poscar(self, copy_contcar=False):
         """
         Args:
-            copy_contcar (bool) - if True, copies CONTCAR to POSCAR is CONTCAR not empty
+            copy_contcar (bool) - if True, copies CONTCAR to POSCAR if CONTCAR not empty
             
         Returns:
             POSCAR
@@ -136,7 +143,7 @@ class VASPSetUp(object):
     def ordered_els_from_poscar(self, copy_contcar=False):
         """
         Args:
-            copy_contcar (bool) - if True, copies CONTCAR to POSCAR is CONTCAR not empty 
+            copy_contcar (bool) - if True, copies CONTCAR to POSCAR if CONTCAR not empty 
             
         Returns:
             dictionary of {element (str) : number in calculated structure (int)}
@@ -161,9 +168,10 @@ class VASPSetUp(object):
         Args:
             els_in_poscar (list or False) - ordered list of elements (str) in POSCAR; if FALSE, read POSCAR
             which_pot (bool or dict) - False to use VASP defaults; else dict of {el : which POTCAR (str)}
+            path_to_pots (str) - path to directory with POTCAR files
             
         Returns:
-            writes POTCAR file
+            writes POTCAR file to calc_dir
         """
         if not els_in_poscar:
             els_in_poscar = self.ordered_els_from_poscar
@@ -232,6 +240,7 @@ class VASPBasicAnalysis(object):
         """
         Args:
             calc_dir (str) - path to analyze VASP calculation
+        
         Returns:
             calc_dir
         """
@@ -243,7 +252,7 @@ class VASPBasicAnalysis(object):
                                              'NELECT', 'NUPDOWN', 'EMIN', 'EMAX', 
                                              'ISMEAR', 'SIGMA', 'AEXX'],
                                  str_params = ['PREC', 'METAGGA', 'LHFCALC', 'LEPSILON',
-                                              'LRPA']):
+                                               'LRPA']):
         """
         Args:
             num_params (list) - list of numerical parameters to retrieve (str)
@@ -270,7 +279,23 @@ class VASPBasicAnalysis(object):
     
     @property
     def nelect(self):
+        """
+        Args:
+            
+        Returns:
+            number of electrons in calculation (int)
+        """
         return self.params_from_outcar(num_params=['NELECT'], str_params=[])['NELECT']
+    
+    @property
+    def nbands(self):
+        """
+        Args:
+            
+        Returns:
+            number of bands in calculation (int)
+        """
+        return self.params_from_outcar(num_params=['NBANDS'], str_params=[])['NBANDS']
     
     @property
     def params_from_incar(self):
@@ -300,6 +325,7 @@ class VASPBasicAnalysis(object):
         outcar = os.path.join(self.calc_dir, 'OUTCAR')
         oszicar = os.path.join(self.calc_dir, 'OSZICAR')
         if not os.path.exists(outcar):
+            print('no OUTCAR file')
             return False
         with open(outcar) as f:
             contents = f.read()
@@ -435,7 +461,7 @@ class VASPBasicAnalysis(object):
             reduce (bool) - if True; reduce formula to unit cell
             
         Returns:
-            standardized chemical formula of calculated structure
+            standardized chemical formula of calculated structure (str)
         """
         els_to_amts = self.els_to_amts
         initial = ''.join([el+str(els_to_amts[el]) for el in els_to_amts])
@@ -457,10 +483,9 @@ class VASPBasicAnalysis(object):
         returns dictionary of {el : {'pp' : pseudo (str), 
                                      'name' : type of pseudo (str), 
                                      'date' : date of pseudo (str), 
-                                     'nval' : number of valence electrons considered (float)}}
+                                     'nval' : number of valence electrons considered (int)}}
         """
         potcar = os.path.join(self.calc_dir, 'POTCAR')
-        idx_dict = self.idxs_to_els
         pseudo_dict = {}
         with open(potcar) as f:
             count = 0
@@ -475,7 +500,7 @@ class VASPBasicAnalysis(object):
                     tmp_dict['date'] = line[3][:-1]
                 if 'ZVAL' in line:
                     line = line.split(';')[1].split('=')[1].split('mass')[0]
-                    tmp_dict['nval'] = float(''.join([val for val in line if val != ' ']))
+                    tmp_dict['nval'] = int(''.join([val for val in line if val != ' ']))
                     pseudo_dict[el] = tmp_dict
                     count += 1
         return pseudo_dict    
@@ -489,6 +514,7 @@ class VASPBasicAnalysis(object):
             energy per atom (float) of calculated structure if converged
         """
         if not self.is_converged:
+            print('calcuation is not converged')
             return np.nan
         oszicar = os.path.join(self.calc_dir, 'OSZICAR')
         if os.path.exists(oszicar):
@@ -524,7 +550,7 @@ class VASPBasicAnalysis(object):
         """
         Args:
             fgaps (str) - file with $ grepgap OUTCAR output
-                            NOTE: grepgap is a custom function...
+                          NOTE: grepgap is a custom function
                             
         Returns:
             dictionary of {'Eg' : overall band gap (float), 'Egd' : direct band gap (float)}
@@ -552,12 +578,14 @@ class VASPBasicAnalysis(object):
 class VASPDOSAnalysis(object):
     """
     Convert DOSCAR to useful dictionary
+    TO DO: f-electrons...
     """
     
     def __init__(self, calc_dir, doscar='DOSCAR'):
         """
         Args:
             calc_dir (str) - path to VASP calculation
+            doscar (str) - name of DOSCAR file to analyze (presumably 'DOSCAR' or 'DOSCAR.lobster')
             
         Returns:
             path to DOSCAR to analyze
@@ -583,7 +611,7 @@ class VASPDOSAnalysis(object):
             if 'lobster' not in self.doscar:
                 fjson = os.path.join(self.calc_dir, 'DOS.json')
             else:
-                fjson = os.path.join(self.calc_dir, 'lob_DOS.json')
+                fjson = os.path.join(self.calc_dir, 'lobDOS.json')
         if remake or not os.path.exists(fjson) or (read_json(fjson) == {}):
             basic_obj = VASPBasicAnalysis(self.calc_dir)
             idxs_to_els = basic_obj.idxs_to_els
@@ -715,8 +743,8 @@ class LOBSTERAnalysis(object):
                                                'sites' : (structure index for el1, structure index for el2) (int),
                                                'orbitals' : (orbital for el1, orbital for el2) (str) ('all' if all orbitals summed),
                                                'dist' : distance in Ang (float)}
-                                               'energies' : [],
-                                               'populations' : []}
+                                               'energies' : [] (placeholder),
+                                               'populations' : [] (placeholder)}
         """
         lobster = self.lobster
         data = {}
@@ -827,6 +855,7 @@ class LOBSTERAnalysis(object):
             orb_pair (str) - orb1-orb2 (order corresponds with el1_el2) or 'all-all' for all orbitals
             fjson (str or False) - path to json to write; if False, writes to calc_dir/DOS.json
             remake (bool) - if True, regenerate dos_dict json; else read json            
+        
         Returns:
             dictionary of {energies (float) : populations (float)} for specified subset
         """        
@@ -846,7 +875,6 @@ class ProcessDOS(object):
     Handles generic dictionary of {energies : states}
     Used for manipulating density of states (or equivalent) and retrieving summary statistics
     """    
-    
     def __init__(self, energies_to_populations, 
                        shift=False,
                        energy_limits=False, 
@@ -865,10 +893,10 @@ class ProcessDOS(object):
                 e.g., energy_limits = [-1000, E_Fermi] would return only occupied states                
             flip_sign (True or False) - change sign of all populations
             min_population (float or False) - get data only when the population is greater than some value
-                e.g., min_population = 0 would return only bonding states in the COHP
+                e.g., min_population = 0 would return only bonding states in the COHP (presuming flip_sign)
             max_population (float or False) - get data only when the population is less than some value
             abs_population (True or False) - make all populations >= 0
-            normalization (foat or False) - divide all populations by some value
+            normalization (float or False) - divide all populations by some value
             
         Returns:
             dictionary of {energy (float) : population (float)} for specified data
@@ -930,7 +958,9 @@ class ProcessDOS(object):
         return summary
         
 class VASPDielectricAnalysis(object):
-    
+    """
+    Analyze LOPTICS=True run
+    """
     def __init__(self, calc_dir):
         """
         Args:
@@ -991,7 +1021,9 @@ class VASPDielectricAnalysis(object):
                         return eps
                     
 class VASPAbsorptionAnalysis(object):
-    
+    """
+    Analyze absorption spectra generated from vaspkit
+    """    
     def __init__(self, calc_dir):
         """
         Args:
@@ -1039,13 +1071,24 @@ class VASPAbsorptionAnalysis(object):
             return {float(E) : d[E] for E in d}
         
 class VASPChargeAnalysis(object):
-    
+    """
+    Analyze Bader or DDEC6 output
+    """    
     def __init__(self, calc_dir):
+        """
+        Args:
+            calc_dir (str) - path to VASP calculation
+            
+        Returns:
+            calc_dir
+        """        
         self.calc_dir = calc_dir
         
     def bader(self, fjson=False, remake=False):
         """
         Args:
+            fjson (str or False) - where to write dictionary; if False, bader_charge.json in calc_dir
+            remake (bool) - rewrite json (True) or not (False)
             
         Returns:
             dictionary of {el (str) : {idx (int) : {charge (float)}}
@@ -1088,6 +1131,8 @@ class VASPChargeAnalysis(object):
     def ddec(self, fjson=False, remake=False):
         """
         Args:
+            fjson (str or False) - where to write dictionary; if False, ddec_charge.json in calc_dir
+            remake (bool) - rewrite json (True) or not (False)
             
         Returns:
             dictionary of {el (str) : {idx (int) : {charge (float)}}
@@ -1129,6 +1174,8 @@ class VASPChargeAnalysis(object):
     def bonds(self, fjson=False, remake=False):
         """
         Args:
+            fjson (str or False) - where to write dictionary; if False, ddec_bonds.json in calc_dir
+            remake (bool) - rewrite json (True) or not (False)
             
         Returns:
             dictionary of {el (str) : {idx (int) : {'ebos' : {partner_el-partner_idx : ebo (float)},
