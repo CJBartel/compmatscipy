@@ -20,7 +20,7 @@ class VASPSetUp(object):
         """
         self.calc_dir = calc_dir
         
-    def incar(self, is_geometry_opt=False, functional='pbe', dos=False, dielectric=False, mag=False,
+    def incar(self, is_geometry_opt=False, functional='pbe', dos=False, dielectric=False, mag=False, piezo=False,
                     standard={'EDIFF' : 1e-6,
                               'ISMEAR' : 0,
                               'SIGMA' : 0.01,
@@ -45,7 +45,7 @@ class VASPSetUp(object):
         """
         d = {}
         
-        if is_geometry_opt == True:
+        if is_geometry_opt:
             d['IBRION'] = 2
             d['NSW'] = 200
             d['NELM'] = 200
@@ -68,12 +68,15 @@ class VASPSetUp(object):
             print('are you sure you want that functional?')
             d = np.nan
             
-        if dos == True:
+        if dos:
             d['NEDOS'] = 2500
         
-        if dielectric == True:
+        if dielectric:
             d['LOPTICS'] = 'TRUE'
             d['NEDOS'] = 2500
+            
+        if piezo:
+            d['IBRION'] = 6
             
         for k in standard:
             d[k] = standard[k]
