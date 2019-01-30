@@ -77,6 +77,7 @@ class VASPSetUp(object):
             
         if piezo:
             d['IBRION'] = 6
+            d['LCALCEPS'] = 'TRUE'
             
         for k in standard:
             d[k] = standard[k]
