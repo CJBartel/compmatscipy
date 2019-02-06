@@ -29,7 +29,8 @@ class VASPSetUp(object):
                               'LORBIT' : 11,
                               'LASPH' : 'TRUE',
                               'ISIF' : 3}, 
-                    additional={}):
+                    additional={},
+                    skip=[]):
         """
         Args:
             is_geometry_opt (bool) - True if geometry is to be optimized
@@ -95,7 +96,8 @@ class VASPSetUp(object):
         fincar = os.path.join(self.calc_dir, 'INCAR')
         with open(fincar, 'w') as f:
             for k in d:
-                f.write(' = '.join([k, str(d[k])])+'\n')
+                if k not in skip:
+                    f.write(' = '.join([k, str(d[k])])+'\n')
         return d
     
     def kpoints(self, discretizations=False, grid=False):
@@ -178,7 +180,7 @@ class VASPSetUp(object):
             writes POTCAR file to calc_dir
         """
         if not els_in_poscar:
-            els_in_poscar = self.ordered_els_from_poscar
+            els_in_poscar = self.ordered_els_from_poscar()
         fpotcar = os.path.join(self.calc_dir, 'POTCAR')
         with open(fpotcar, 'w') as f:
             for el in els_in_poscar:
@@ -881,6 +883,8 @@ class ProcessDOS(object):
     """    
     def __init__(self, energies_to_populations, 
                        shift=False,
+                       cb_shift=False,
+                       vb_shift=False,
                        energy_limits=False, 
                        flip_sign=False,
                        min_population=False, 
@@ -893,6 +897,8 @@ class ProcessDOS(object):
             populations (array) - number of states at each energy (float)
             shift (float or False) - shift all energies
                 e.g., shift = -E_Fermi would make E_fermi = 0 eV
+            cb_shift (tuple or False) - shift all energies >= cb_shift[0] (float) by cb_shift[1] (float)
+            vb_shift (tuple or False) - shift all energies <= vb_shift[0] (float) by vb_shift[1] (float)            
             energy_limits (list or False) - get data only for energies between (including) energy_limits[0] and energy_limits[1]
                 e.g., energy_limits = [-1000, E_Fermi] would return only occupied states                
             flip_sign (True or False) - change sign of all populations
@@ -910,6 +916,10 @@ class ProcessDOS(object):
         indices = range(len(energies))
         if shift:
             energies = [E+shift for E in energies]
+        if cb_shift:
+            energies = [E+cb_shift[1] if E >= cb_shift[0] else E for E in energies]
+        if vb_shift:
+            energies = [E+vb_shift[1] if E <= vb_shift[0] else E for E in energies]            
         if flip_sign:
             populations = [-p for p in populations]
         if energy_limits:

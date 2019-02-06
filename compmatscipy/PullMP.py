@@ -89,7 +89,7 @@ class PullMP(object):
         else:
             return read_json(fjson)
         
-    def specific_hull_query(self, fjson, elements, props, remove_polymorphs=True, remake=False, write_it=True):
+    def specific_hull_query(self, fjson, elements, props, remove_polymorphs=True, remake=False, write_it=True, include_els=False):
         """
         Args:
             fjson (str) - where to write data (if write_it=True)
@@ -98,6 +98,7 @@ class PullMP(object):
             remove_polymorphs - if True: filter data to only include ground-state structures
             remake - if True: rewrite json; else: read json
             write_it - if True: write json; else: return dictionary
+            include_els (bool) - if True, also retrieve the elemental phases; else: don't
         Returns:
             dictionary of MP data corresponding with stability-related query for chemical space defined by elements
         """        
@@ -161,8 +162,8 @@ class PullMP(object):
         Returns:
             Poscar object (also writes POSCAR)
         """
-        entry = self.rester(material_id)
-        poscar = Poscar(entry)
+        structure = self.rester.get_structure_by_material_id(material_id)
+        poscar = Poscar(structure)
         poscar.write_file(fpos)
         return poscar
         

@@ -66,6 +66,8 @@ def dos(calc_dir,
         legend=True,
         smearing=0.2,
         shift='Fermi', normalization='electron',
+        cb_shift=False,
+        vb_shift=False,
         show=False,
         enforce_insulation=False):
     """
@@ -84,6 +86,8 @@ def dos(calc_dir,
         legend (bool) - include legend or not
         smearing (float or False) - std. dev. for Gaussian smearing of DOS or False for no smearing
         shift (float or 'Fermi') - if 'Fermi', make Fermi level 0; else shift energies by shift
+        cb_shift (tuple or False) - shift all energies >= cb_shift[0] (float) by cb_shift[1] (float)
+        vb_shift (tuple or False) - shift all energies <= vb_shift[0] (float) by vb_shift[1] (float)             
         normalization ('electron', 'atom', or False) - divide populations by number of electrons, number of atoms, or not at all
         show (bool) - if True, show figure; else just return ax
                    
@@ -118,7 +122,9 @@ def dos(calc_dir,
                     flip_sign = False
                 d = ProcessDOS(d, shift=shift, 
                                flip_sign=flip_sign,
-                               normalization=normalization).energies_to_populations
+                               normalization=normalization,
+                               cb_shift=cb_shift,
+                               vb_shift=vb_shift).energies_to_populations
                 energies = sorted(list(d.keys()))
                 occ_energies = [E for E in energies if E <= occupied_up_to]
                 occ_populations = [d[E] for E in occ_energies]
