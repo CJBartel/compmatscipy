@@ -37,7 +37,7 @@ class UnitTestHelpWithVASP(unittest.TestCase):
     
     def test_basic_idxs_to_els(self):    
         calc = calcs()['SCAN_geometry']
-        check = VASPBasicAnalysis(calc).idxs_to_els[13]
+        check = VASPSetUp(calc).idxs_to_els[13]
         answer = 'Ag'
         self.assertEqual(check, answer)
         
@@ -59,7 +59,7 @@ class UnitTestHelpWithVASP(unittest.TestCase):
         answer = 0.3567
         self.assertEqual(Efermi, answer)
         
-    def test_tdos_detailed(self):
+    def __test_tdos_detailed(self):
         calc = calcs()['SCAN_geometry']
         d = VASPDOSAnalysis(calc).detailed_dos_dict(fjson=os.path.join(test_data_dir, 'test_dos.json'), remake=True)
         total_line = '-6.203  0.1125E-04  0.1126E-04  0.1600E-01  0.1600E-01'

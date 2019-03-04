@@ -5,6 +5,91 @@ from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.handy_functions import read_json, write_json
 from scipy.integrate import simps
 
+def magnetic_els():
+    return []
+
+def make_magmom(ordered_els, els_to_sites, spin):
+    magmom = []
+    for el in ordered_els:
+        if el not in magnetic_els():
+            magmom.append((len(els_to_sites[el]), 0))
+        else:
+            magmom.append((len(els_to_sites[el]), spin))
+    magmom = ['*'.join([str(v) for v in m]) for m in magmom]
+    magmom = ' '.join(magmom)
+    return magmom
+    
+
+def els_to_amts(ordered_els, fstructure):
+    """
+    Args:
+    
+    Returns:
+        dictionary of {element (str) : number in calculated structure (int)}
+    """
+    els = ordered_els
+    with open(fstructure) as f:
+        count = 0
+        for line in f:
+            if count <= 4:
+                count += 1
+            if count == 5:
+                stuff = [v for v in line.split(' ') if v != '']
+                try:
+                    amts = [int(v) for v in stuff]
+                    els_to_amts = dict(zip(els, amts))
+                    break
+                except:
+                    continue
+            if count == 6:
+                stuff = [v for v in line.split(' ') if v != '']
+                amts = [int(v) for v in stuff]
+                els_to_amts = dict(zip(els, amts))   
+    return els_to_amts
+
+def nsites(els_to_amts):
+    """
+    Args:
+        
+    Returns:
+        number (int) of ions in calculated structure
+    """
+    return np.sum(list(els_to_amts.values()))
+    
+def idxs_to_els(ordered_els, els_to_amts, nsites):
+    """
+    Args:
+        
+    Returns:
+        dictionary of index in structure (int) to the element (str) at that index
+    """
+    els = ordered_els
+    els_to_sites = {}
+    idx = 0
+    for el in els:
+        start, stop = idx, els_to_amts[el]+idx
+        els_to_sites[el] = (start, stop)
+        idx = stop        
+    els_to_idxs = {el : range(els_to_sites[el][0], els_to_sites[el][1]) for el in els_to_sites}
+    idxs_to_els = {}
+    for idx in range(nsites):
+        for el in els_to_idxs:
+            if idx in els_to_idxs[el]:
+                idxs_to_els[idx] = el
+    return idxs_to_els
+    
+def els_to_idxs(idxs_to_els):
+    """
+    """
+    els = sorted(list(set(idxs_to_els.values())))
+    els_to_idxs = {el : [] for el in els}
+    for idx in idxs_to_els:
+        els_to_idxs[idxs_to_els[idx]].append(idx)
+    return els_to_idxs
+
+
+
+
 class VASPSetUp(object):
     """
     Helps set up VASP calculations
@@ -168,6 +253,43 @@ class VASPSetUp(object):
                         return np.nan
                     except:
                         return els
+                    
+    @property
+    def els_to_amts(self):
+        """
+        Args:
+        
+        Returns:
+            dictionary of {element (str) : number in calculated structure (int)}
+        """
+        return els_to_amts(self.ordered_els_from_poscar(), self.poscar())
+    
+    @property
+    def idxs_to_els(self):
+        """
+        Args:
+            
+        Returns:
+            dictionary of index in structure (int) to the element (str) at that index
+        """
+        return idxs_to_els(self.ordered_els_from_poscar(), self.els_to_amts, self.nsites)
+
+    
+    @property
+    def els_to_idxs(self):
+        """
+        """
+        return els_to_idxs(self.idxs_to_els)
+    
+    @property
+    def nsites(self):
+        """
+        Args:
+            
+        Returns:
+            number (int) of ions in calculated structure
+        """
+        return nsites(self.els_to_amts)                      
                 
     def potcar(self, els_in_poscar=False, specific_pots=False, path_to_pots='/projects/thermochem/rs_perovs/potpaw_PBE.54'):
         """
@@ -416,25 +538,7 @@ class VASPBasicAnalysis(object):
         Returns:
             dictionary of {element (str) : number in calculated structure (int)}
         """
-        els = self.ordered_els_from_outcar
-        with open(self.structure) as f:
-            count = 0
-            for line in f:
-                if count <= 4:
-                    count += 1
-                if count == 5:
-                    stuff = [v for v in line.split(' ') if v != '']
-                    try:
-                        amts = [int(v) for v in stuff]
-                        els_to_amts = dict(zip(els, amts))
-                        break
-                    except:
-                        continue
-                if count == 6:
-                    stuff = [v for v in line.split(' ') if v != '']
-                    amts = [int(v) for v in stuff]
-                    els_to_amts = dict(zip(els, amts))   
-        return els_to_amts
+        return els_to_amts(self.ordered_els_from_outcar, self.structure)
     
     @property
     def idxs_to_els(self):
@@ -444,22 +548,24 @@ class VASPBasicAnalysis(object):
         Returns:
             dictionary of index in structure (int) to the element (str) at that index
         """
-        els = self.ordered_els_from_outcar
-        els_to_amts = self.els_to_amts
-        els_to_sites = {}
-        idx = 0
-        for el in els:
-            start, stop = idx, els_to_amts[el]+idx
-            els_to_sites[el] = (start, stop)
-            idx = stop        
-        nsites = self.nsites
-        els_to_idxs = {el : range(els_to_sites[el][0], els_to_sites[el][1]) for el in els_to_sites}
-        idxs_to_els = {}
-        for idx in range(nsites):
-            for el in els_to_idxs:
-                if idx in els_to_idxs[el]:
-                    idxs_to_els[idx] = el
-        return idxs_to_els
+        return idxs_to_els(self.ordered_els_from_outcar, self.els_to_amts, self.nsites)
+
+    
+    @property
+    def els_to_idxs(self):
+        """
+        """
+        return els_to_idxs(self.idxs_to_els)
+    
+    @property
+    def nsites(self):
+        """
+        Args:
+            
+        Returns:
+            number (int) of ions in calculated structure
+        """
+        return nsites(self.els_to_amts)    
                 
     def formula(self, reduce=False):
         """
@@ -472,16 +578,6 @@ class VASPBasicAnalysis(object):
         els_to_amts = self.els_to_amts
         initial = ''.join([el+str(els_to_amts[el]) for el in els_to_amts])
         return CompAnalyzer(initial).std_formula(reduce)
-                
-    @property
-    def nsites(self):
-        """
-        Args:
-            
-        Returns:
-            number (int) of ions in calculated structure
-        """
-        return np.sum(list(self.els_to_amts.values()))
     
     @property
     def pseudopotentials(self):
@@ -1239,7 +1335,7 @@ class VASPChargeAnalysis(object):
             return write_json(new, fjson)
         else:
             return read_json(fjson)
-                
+        
 def main():
     return
 
