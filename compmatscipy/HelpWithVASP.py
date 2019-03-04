@@ -6,15 +6,50 @@ from compmatscipy.handy_functions import read_json, write_json
 from scipy.integrate import simps
 
 def magnetic_els():
-    return []
+    return ['Ti', 'Zr', 'Hf',
+            'V', 'Nb', 'Ta',
+            'Cr', 'Mo', 'W',
+            'Mn', 'Tc', 'Re',
+            'Fe', 'Ru', 'Os',
+            'Co', 'Rh', 'Ir',
+            'Ni', 'Pd', 'Pt',
+            'Cu', 'Ag', 'Au',
+            'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu',
+            'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']
 
-def make_magmom(ordered_els, els_to_sites, spin):
+def make_magmom(ordered_els, els_to_sites, spin, config='fm'):
     magmom = []
     for el in ordered_els:
+        sites = els_to_sites[el]
         if el not in magnetic_els():
-            magmom.append((len(els_to_sites[el]), 0))
+            magmom.append((len(sites), 0))
         else:
-            magmom.append((len(els_to_sites[el]), spin))
+            if config == 'fm':
+                magmom.append((len(sites), spin))
+            elif 'afm' in config:
+                i = int(config.split('-')[1])
+                if len(sites) % 2:
+                    print('cannot do afm for odd-numbered magnetic elements!')
+                    raise ValueError
+                elif len(sites) == 2:
+                    magmom.append((1, spin))
+                    magmom.append((1, -spin))
+                else:
+                    if i == 1:
+                        for s in range(len(sites)):
+                            if s % 2:
+                                magmom.append((1, spin))
+                            else:
+                                magmom.append((1, -spin))
+                    elif i == 2:
+                        for s in range(len(sites)):
+                            if s < len(sites)/2:
+                                magmom.append((1, spin))
+                            else:
+                                magmom.append((1, -spin))                          
+                    elif i >= 3:
+                        print('only sampling 2 configs for now')
+                        raise ValueError
     magmom = ['*'.join([str(v) for v in m]) for m in magmom]
     magmom = ' '.join(magmom)
     return magmom
@@ -87,9 +122,6 @@ def els_to_idxs(idxs_to_els):
         els_to_idxs[idxs_to_els[idx]].append(idx)
     return els_to_idxs
 
-
-
-
 class VASPSetUp(object):
     """
     Helps set up VASP calculations
@@ -122,7 +154,7 @@ class VASPSetUp(object):
             functional (str) - 'pbe' (PBE), 'scan' (SCAN), or 'hse' (HSE06)
             dos (bool) - True if accurate DOS desired
             dielectric (bool) - True if LOPTICS on
-            mag (bool) - True if spin-polarized calculation
+            mag (bool or str) - False = non-magnetic; 'fm' = hs-ferro; 'afm-1' = hs-afm alternate; 'afm-2' = hs-afm blocksT
             standard (dict) - dictionary of parameters for starting point in INCAR
             additional (dict) - dictionary of parameters to enforce in INCAR
         
@@ -175,9 +207,7 @@ class VASPSetUp(object):
             if 'ISPIN' not in d:
                 d['ISPIN'] = 2
             if 'MAGMOM' not in d:
-                print('you specified magnetic calculation, but didnt specify a MAGMOM')
-                d = np.nan
-            
+                make_magmom(self.ordered_els_from_poscar, self.els_to_idxs, spin=5, config=mag)            
         fincar = os.path.join(self.calc_dir, 'INCAR')
         with open(fincar, 'w') as f:
             for k in d:
