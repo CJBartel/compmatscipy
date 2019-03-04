@@ -19,6 +19,9 @@ def magnetic_els():
 
 def make_magmom(ordered_els, els_to_sites, spin, config='fm'):
     magmom = []
+    if len([el for el in ordered_els if el not in magnetic_els()]) == len(ordered_els):
+        print('no magnetic elements')
+        return 'CRASH THE JOB'
     for el in ordered_els:
         sites = els_to_sites[el]
         if el not in magnetic_els():
@@ -30,7 +33,7 @@ def make_magmom(ordered_els, els_to_sites, spin, config='fm'):
                 i = int(config.split('-')[1])
                 if len(sites) % 2:
                     print('cannot do afm for odd-numbered magnetic elements!')
-                    raise ValueError
+                    return 'CRASH THE JOB'
                 elif len(sites) == 2:
                     magmom.append((1, spin))
                     magmom.append((1, -spin))
@@ -49,12 +52,11 @@ def make_magmom(ordered_els, els_to_sites, spin, config='fm'):
                                 magmom.append((1, -spin))                          
                     elif i >= 3:
                         print('only sampling 2 configs for now')
-                        raise ValueError
+                        return 'CRASH THE JOB'
     magmom = ['*'.join([str(v) for v in m]) for m in magmom]
     magmom = ' '.join(magmom)
     return magmom
     
-
 def els_to_amts(ordered_els, fstructure):
     """
     Args:
@@ -207,7 +209,8 @@ class VASPSetUp(object):
             if 'ISPIN' not in d:
                 d['ISPIN'] = 2
             if 'MAGMOM' not in d:
-                make_magmom(self.ordered_els_from_poscar, self.els_to_idxs, spin=5, config=mag)            
+                magmom = make_magmom(self.ordered_els_from_poscar(), self.els_to_idxs, spin=5, config=mag)            
+                d['MAGMOM'] = magmom
         fincar = os.path.join(self.calc_dir, 'INCAR')
         with open(fincar, 'w') as f:
             for k in d:
