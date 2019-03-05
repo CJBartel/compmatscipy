@@ -138,7 +138,21 @@ class VASPSetUp(object):
             calc_dir
         """
         self.calc_dir = calc_dir
-        
+
+    @property
+    def mag_info(self):
+        els_to_sites = self.els_to_idxs
+        ordered_els = self.ordered_els_from_poscar()
+        if len([el for el in ordered_els if el not in magnetic_els()]) == len(ordered_els):
+            print('no magnetic elements')
+            return 'nm'
+        for el in ordered_els:
+            sites = els_to_sites[el]
+            if len(sites) % 2:
+                print('cannot do afm for odd-numbered magnetic elements!')
+                return 'fm'
+        return 'afm'
+
     def incar(self, is_geometry_opt=False, functional='pbe', dos=False, dielectric=False, mag=False, piezo=False,
                     standard={'EDIFF' : 1e-6,
                               'ISMEAR' : 0,
@@ -635,7 +649,7 @@ class VASPBasicAnalysis(object):
                     tmp_dict['date'] = line[3][:-1]
                 if 'ZVAL' in line:
                     line = line.split(';')[1].split('=')[1].split('mass')[0]
-                    tmp_dict['nval'] = int(''.join([val for val in line if val != ' ']))
+                    tmp_dict['nval'] = int(float(''.join([val for val in line if val != ' '])))
                     pseudo_dict[el] = tmp_dict
                     count += 1
         return pseudo_dict    
@@ -709,6 +723,25 @@ class VASPBasicAnalysis(object):
         else:
             Eg, Egd = np.nan, np.nan
         return {'Eg' : Eg, 'Egd' : Egd}                
+
+    @property
+    def shift(self):
+        """
+        Args:
+
+        Returns:
+        alpha+bet in OUTCAR (float)
+        """
+        calc_dir = self.calc_dir
+        outcar = os.path.join(calc_dir, 'OUTCAR')
+        if not os.path.exists(outcar):
+            print('no outcar!')
+            return np.nan
+        with open(outcar) as f:
+            for line in f:
+                if 'alpha+bet' in line:
+                    shift = float(line[:-1].split('alpha+bet')[1].split(':')[1].strip())
+                    return shift
                 
 class VASPDOSAnalysis(object):
     """
@@ -882,6 +915,9 @@ class LOBSTERAnalysis(object):
                                                'populations' : [] (placeholder)}
         """
         lobster = self.lobster
+        if not os.path.exists(lobster):
+            print('%s doesnt exist' % lobster)
+            return np.nan
         data = {}
         with open(lobster) as f:
             count = 0
@@ -932,6 +968,8 @@ class LOBSTERAnalysis(object):
         if remake or not os.path.exists(fjson) or (read_json(fjson) == {}):
             lobster = self.lobster
             data = self.pair_dict
+            if not isinstance(data, dict):
+                return np.nan
             with open(lobster) as f:
                 count = 0
                 for line in f:
