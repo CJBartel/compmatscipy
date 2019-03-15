@@ -4,6 +4,7 @@ import numpy as np
 from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.handy_functions import read_json, write_json
 from scipy.integrate import simps
+from compmatscipy.data import atomic_valences_data
 
 def magnetic_els():
     return ['Ti', 'Zr', 'Hf',
@@ -889,8 +890,15 @@ class VASPDOSAnalysis(object):
                 populations = [np.sum([dos_dict[E][element][spin] for spin in spins]) for E in energies]
         return dict(zip(energies, populations))
 
-    def min_valence_energy(self, tol=0.01, fjson=False, remake=False):
-        nelect = VASPBasicAnalysis(self.calc_dir).nelect
+    def min_valence_energy(self, tol=0.01, electrons='valence', fjson=False, remake=False):
+        if electrons == 'all':
+            nelect = VASPBasicAnalysis(self.calc_dir).nelect
+        elif electrons == 'valence':
+            valence_data = atomic_valences_data()
+            els_to_idxs = VASPBasicAnalysis(self.calc_dir).els_to_idxs
+            nelect = 0
+            for el in els_to_idxs:
+                nelect += valence_data[el]*len(els_to_idxs[el])
         dos = self.energies_to_populations(fjson=fjson, remake=remake)
         if isinstance(dos, float):
             print('hmmm energies_to_populations is not a dict...')
@@ -980,7 +988,8 @@ class DOEAnalysis(object):
                         continue
             return write_json(data, fjson)
         else:
-            return read_json(fjson)
+            data = read_json(fjson)
+            return {float(k) : data[k] for k in data}
 
     def energies_to_populations(self, spin='summed', fjson=False, remake=False):
         """
@@ -1000,9 +1009,9 @@ class DOEAnalysis(object):
         elif ispin == 2:
             spins = ['up', 'down']
         if spin != 'summed':
-            populations = [dos_dict[E][element][spin] for E in energies]
+            populations = [dos_dict[E]['total'][spin] for E in energies]
         else:
-            populations = [np.sum([dos_dict[E][element][spin] for spin in spins]) for E in energies]
+            populations = [np.sum([dos_dict[E]['total'][spin] for spin in spins]) for E in energies]
         return dict(zip(energies, populations))
         
 class LOBSTERAnalysis(object):

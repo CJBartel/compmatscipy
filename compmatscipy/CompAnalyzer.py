@@ -130,6 +130,9 @@ class CompAnalyzer(object):
             number of each element in the standardized formula (int) in the order of self.els, which is alphabetical
         """
         return [int(v) for v in re.findall('\d+', self.std_formula(reduce))]
+
+    def els_to_amts(self, reduce=True):
+        return dict(zip(self.els, self.amts(reduce)))
                 
     @property
     def num_els_in_formula(self):

@@ -11,3 +11,4 @@ from .elemental_gibbs_energies import elemental_gibbs_energies_data
 from .elemental_chemical_potentials import elemental_chemical_potentials_data
 from .shannon_revised_effective_ionic_radii import shannon_revised_effective_ionic_radii_data
 from .calibrated_tau_prob import calibrated_tau_prob_clf
+from .atomic_valences import atomic_valences_data
