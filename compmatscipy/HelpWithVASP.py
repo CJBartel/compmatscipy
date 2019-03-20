@@ -1566,7 +1566,7 @@ class VASPChargeAnalysis(object):
                 count = 0
                 for line in f:
                     count += 1
-                    if 'Printing EBOs' in line:
+                    if ('Printing EBOs' in line) or ('Printing BOs' in line):
                         idx += 1
                         el = idx_to_els[idx]
                         tmp = {'el' : el}
