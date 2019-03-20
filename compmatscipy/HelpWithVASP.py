@@ -1656,6 +1656,8 @@ class MadelungAnalysis(object):
         from pymatgen import Structure
         from pymatgen.io.vasp.inputs import Poscar        
         charge_list = self.site_charges(src, oxidation_states, charge_json)
+        if not isinstance(charge_list, list):
+            return np.nan
         poscar = os.path.join(self.calc_dir, 'CONTCAR')
         if not os.path.exists(poscar):
             return np.nan
