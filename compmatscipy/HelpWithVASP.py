@@ -1,4 +1,4 @@
-import os
+import os, sys
 from shutil import copyfile
 import numpy as np
 from compmatscipy.CompAnalyzer import CompAnalyzer
@@ -1594,6 +1594,77 @@ class VASPChargeAnalysis(object):
             return write_json(new, fjson)
         else:
             return read_json(fjson)
+
+class MadelungAnalysis(object):
+    """
+    Analyze electrostatic energy
+    """    
+    def __init__(self, calc_dir):
+        """
+        Args:
+            calc_dir (str) - path to VASP calculation
+            
+        Returns:
+            calc_dir
+        """        
+        self.calc_dir = calc_dir
+        
+    def site_charges(self, src, oxidation_states=False, charge_json=False):
+        """
+        Args:
+            src (str) - 'bader', 'ddec', or 'ox'
+            ox_states (dict or False) - if src == 'ox', must be specified as {el (str): oxidation state (int or float)}
+            charge_json (str or False) - fjson arg in VASPChargeAnalysis.bader or .ddec
+        Returns:
+            list of charges (float or int) ordered by sites in POSCAR
+                to-be-used as input to pyamtgen.analysis.ewald.EwaldSummation
+        """
+        calc_dir = self.calc_dir
+        if src == 'ox':
+            if not oxidation_states:
+                print('you specified oxidation states as a source for charges, but didnt specify the oxidation states')
+                return np.nan
+        if src == 'bader':
+            charge_dict = VASPChargeAnalysis(calc_dir).bader(fjson=charge_json)
+        if src == 'ddec':
+            charge_dict = VASPChargeAnalysis(calc_dir).ddec(fjson=charge_json)
+        if (src != 'ox') and not isinstance(charge_dict, dict):
+            print('%s failed' % src)
+            return np.nan
+        idxs_to_els = VASPBasicAnalysis(calc_dir).idxs_to_els
+        charge_list = []
+        if src == 'ox':
+            for i in idxs_to_els:
+                charge_list.append(oxidation_states[idxs_to_els[i]])
+        else:
+            for i in idxs_to_els:
+                charge_list.append(charge_dict[idxs_to_els[i]][str(i)])
+        
+        return charge_list      
+    
+    def Ewald(self, src, oxidation_states=False, charge_json=False):
+        """
+        Args:
+            src (str) - 'bader', 'ddec', or 'ox'
+            ox_states (dict or False) - if src == 'ox', must be specified as {el (str): oxidation state (int or float)}
+            charge_json (str or False) - fjson arg in VASPChargeAnalysis.bader or .ddec
+        Returns:
+            electrostatic energy (eV/atom)
+        """
+        
+        from pymatgen.analysis.ewald import EwaldSummation
+        from pymatgen import Structure
+        from pymatgen.io.vasp.inputs import Poscar        
+        charge_list = self.site_charges(src, oxidation_states, charge_json)
+        poscar = os.path.join(self.calc_dir, 'CONTCAR')
+        if not os.path.exists(poscar):
+            return np.nan
+        p = Poscar.from_file(poscar, check_for_POTCAR=True)
+        original_s = p.structure
+        s = original_s.copy()
+        s.add_oxidation_state_by_site(charge_list)
+        ham = EwaldSummation(s, compute_forces=True)    
+        return ham.total_energy/len(s)        
         
 def main():
     return
