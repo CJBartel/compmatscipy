@@ -1080,7 +1080,10 @@ class LOBSTERAnalysis(object):
                                           'energies' : [],
                                           'populations' : []}
                     else:
-                        return write_json(data, fjson)        
+                        return write_json(data, fjson)  
+                    
+        else:
+            return read_json(fjson)
 
     def detailed_dos_dict(self, fjson=False, remake=False, fjson_pairs=False):
         """
