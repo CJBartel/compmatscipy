@@ -233,11 +233,12 @@ class VASPSetUp(object):
                     f.write(' = '.join([k, str(d[k])])+'\n')
         return d
     
-    def kpoints(self, discretizations=False, grid=False):
+    def kpoints(self, discretizations=False, grid=False, kppa=False):
         """
         Args:
             discretizations (int) - False if grid to be specified; else number of discretizations for auto grid
             grid (int) - False if discretizations to be specified; else tuple of ints for grid
+            kppa (int) - auto-generated Gamma or Monkhorst-pack grid with kppa / atom ^-1
             
         Returns:
             writes KPOINTS file to calc_dir
@@ -255,6 +256,11 @@ class VASPSetUp(object):
                 f.write('0\n')
                 f.write('Auto\n')
                 f.write(str(discretizations)+'\n') 
+            elif kppa != False:
+                from pymatgen.io.vasp.inputs import Kpoints
+                from pymatgen.core.structure import Structure
+                Kpoints().automatic_density(Structure(self.poscar()), kppa=kppa).write_file(fkpoints)
+                
             else:
                 print('youn need to specify how to write the KPOINTS file')
                 
@@ -354,7 +360,7 @@ class VASPSetUp(object):
         fpotcar = os.path.join(self.calc_dir, 'POTCAR')
         with open(fpotcar, 'w') as f:
             for el in els_in_poscar:
-                if specific_pots == False:
+                if (specific_pots == False) or (el not in specific_pots):
                     pot_to_add = os.path.join(path_to_pots, el, 'POTCAR')
                 else:
                     pot_to_add = os.path.join(path_to_pots, el+'_'+specific_pots[el])
@@ -362,7 +368,7 @@ class VASPSetUp(object):
                     for line in g:
                         f.write(line)
     
-    def sub(self, log_name, nodes, ppn, queue, walltime, allocation, 
+    def sub_peregrine(self, log_name, nodes, ppn, queue, walltime, allocation, 
                   priority='low', feature=False, 
                   username='cbartel', bash='.bashrc', 
                   mpi_command='/nopt/intel/psxe2017u2/compilers_and_libraries_2017.5.239/linux/mpi/intel64/bin/mpiexec', 
@@ -405,6 +411,9 @@ class VASPSetUp(object):
             f.write('export OMP_NUM_THREADS=1\n')
             f.write('%s -np %s %s > %s\n' % (mpi_command, str(int(nodes) * int(ppn)), vasp, out_file))
             f.write('exit 0\n')
+            
+    def sub_ginar():
+        return
             
 class VASPBasicAnalysis(object):
     """
