@@ -345,16 +345,23 @@ class VASPSetUp(object):
         """
         return nsites(self.els_to_amts)                      
                 
-    def potcar(self, els_in_poscar=False, specific_pots=False, path_to_pots='/projects/thermochem/rs_perovs/potpaw_PBE.54'):
+    def potcar(self, els_in_poscar=False, specific_pots=False, machine='peregrine'):
         """
         Args:
             els_in_poscar (list or False) - ordered list of elements (str) in POSCAR; if FALSE, read POSCAR
             which_pot (bool or dict) - False to use VASP defaults; else dict of {el : which POTCAR (str)}
-            path_to_pots (str) - path to directory with POTCAR files
+            machine (str) - which computer or the path to your potcars
             
         Returns:
             writes POTCAR file to calc_dir
         """
+        
+        if machine == 'peregrine':
+            path_to_pots = '/projects/thermochem/rs_perovs/potpaw_PBE.54'
+        elif machine == 'ginar':
+            path_to_pots = '/home/cbartel/apps/pp/potpaw_PBE.54/'
+        else:
+            path_to_pots = machine
         if not els_in_poscar:
             els_in_poscar = self.ordered_els_from_poscar()
         fpotcar = os.path.join(self.calc_dir, 'POTCAR')
