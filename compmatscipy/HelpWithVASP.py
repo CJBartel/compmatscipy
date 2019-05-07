@@ -257,9 +257,10 @@ class VASPSetUp(object):
                 f.write('Auto\n')
                 f.write(str(discretizations)+'\n') 
             elif kppa != False:
-                from pymatgen.io.vasp.inputs import Kpoints
-                from pymatgen.core.structure import Structure
-                Kpoints().automatic_density(Structure(self.poscar()), kppa=kppa).write_file(fkpoints)
+                from pymatgen.io.vasp.inputs import Kpoints, Poscar
+                poscar = Poscar.from_file(self.poscar())
+                s = poscar.structure
+                Kpoints().automatic_density(s, kppa=kppa).write_file(fkpoints)
                 
             else:
                 print('youn need to specify how to write the KPOINTS file')
@@ -419,8 +420,17 @@ class VASPSetUp(object):
             f.write('%s -np %s %s > %s\n' % (mpi_command, str(int(nodes) * int(ppn)), vasp, out_file))
             f.write('exit 0\n')
             
-    def sub_ginar():
-        return
+    def sub_ginar(self, sub_file='sub.sh', out_file='job.o', nprocs=16, 
+                  mpi_command='/share/apps/intel/impi/5.0.3.048/intel64/bin/mpiexec.hydra',
+                  vasp='pvasp.5.4.1.intel'):
+        fsub = os.path.join(self.calc_dir, sub_file)
+        with open(fsub, 'w') as f:
+            f.write('#! /bin/bash\n')
+            f.write('#$ -cwd\n')
+            f.write('#$ -o %s\n' % out_file)
+            f.write('#$ -pe impi %s\n' % (str(nprocs)))
+            f.write('#$ -j yes\n')
+            f.write('%s -n %s %s > %s\n' % (mpi_command, str(nprocs), vasp, out_file))
             
 class VASPBasicAnalysis(object):
     """
