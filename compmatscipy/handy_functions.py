@@ -1,5 +1,6 @@
 import json, os
 import numpy as np
+from subprocess import call
 
 def make_directory_tree(path_to_make, sep='/'):
     """
@@ -82,7 +83,7 @@ def H_from_E(els_to_amts, E, mus):
     Ef_per_fu = E_per_fu - stoich_weighted_elemental_energies
     return Ef_per_fu / atoms_in_fu
 
-def get_q(f_qstat='qstat.txt', f_jobs='qjobs.txt', username='cbartel'):
+def get_pbs_q(f_qstat='qstat.txt', f_jobs='qjobs.txt', username='cbartel'):
     """
     Args:
         f_qstat (str) - path to write detailed queue information
@@ -104,3 +105,34 @@ def get_q(f_qstat='qstat.txt', f_jobs='qjobs.txt', username='cbartel'):
     with open(f_jobs) as f:
         jobs_in_q = [line.split(' = ')[1][:-1] for line in f]
     return jobs_in_q
+
+def is_slurm_job_in_queue(job_name, user_name='tg857781', fqueue='q.out'):
+    with open(fqueue, 'w') as f:
+        call(['squeue','-u', user_name, '--name=%s' % job_name], stdout=f)
+    names_in_q = []
+    with open(fqueue) as f:
+        for line in f:
+            if 'PARTITION' not in line:
+                names_in_q.append([v for v in line.split(' ') if len(v) > 0][2])
+    if len(names_in_q) == 0:
+        return False
+    else:
+        return True
+
+def get_stampede2_queue_counts(fqueue):
+    with open(fqueue, 'w') as f:
+        call(['squeue','-u', 'tg857781'], stdout=f)
+    with open(fqueue) as f:
+        normal = 0
+        skx = 0
+        for line in f:
+            if 'PARTITION' not in line:
+                queue = [v for v in line.split(' ') if len(v) > 0][1]
+                if queue == 'normal':
+                    normal += 1
+                elif queue == 'skx':
+                    skx += 1
+    total = normal + skx
+    return {'normal' : normal,
+            'skx' : skx,
+            'total' : total}

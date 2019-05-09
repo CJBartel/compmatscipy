@@ -346,32 +346,34 @@ class VASPSetUp(object):
         """
         return nsites(self.els_to_amts)                      
                 
-    def potcar(self, els_in_poscar=False, specific_pots=False, machine='peregrine'):
+    def potcar(self, els_in_poscar=False, specific_pots=False, machine='peregrine', src='potpaw'):
         """
         Args:
             els_in_poscar (list or False) - ordered list of elements (str) in POSCAR; if FALSE, read POSCAR
             which_pot (bool or dict) - False to use VASP defaults; else dict of {el : which POTCAR (str)}
             machine (str) - which computer or the path to your potcars
-            
+            src (str) - 'potpaw' implies SCAN-able POTs and configuration like ELEMENT_MOD/POTCAR
         Returns:
             writes POTCAR file to calc_dir
         """
-        
+        if not els_in_poscar:
+            els_in_poscar = self.ordered_els_from_poscar()
+        fpotcar = os.path.join(self.calc_dir, 'POTCAR')
         if machine == 'peregrine':
             path_to_pots = '/projects/thermochem/rs_perovs/potpaw_PBE.54'
         elif machine == 'ginar':
             path_to_pots = '/home/cbartel/apps/pp/potpaw_PBE.54/'
-        else:
-            path_to_pots = machine
-        if not els_in_poscar:
-            els_in_poscar = self.ordered_els_from_poscar()
-        fpotcar = os.path.join(self.calc_dir, 'POTCAR')
+        elif machine == 'stampede2':
+            path_to_pots = '/home1/06479/tg857781/bin/VASP_PSP/POT_GGA_PAW_PBE_52'
+        if src != 'potpaw':
+            print('havent configured this yet')
+            return
         with open(fpotcar, 'w') as f:
             for el in els_in_poscar:
                 if (specific_pots == False) or (el not in specific_pots):
                     pot_to_add = os.path.join(path_to_pots, el, 'POTCAR')
                 else:
-                    pot_to_add = os.path.join(path_to_pots, el+'_'+specific_pots[el])
+                    pot_to_add = os.path.join(path_to_pots, specific_pots[el], 'POTCAR')
                 with open(pot_to_add) as g:
                     for line in g:
                         f.write(line)
@@ -432,6 +434,31 @@ class VASPSetUp(object):
             f.write('#$ -j yes\n')
             f.write('%s -n %s %s > %s\n' % (mpi_command, str(nprocs), vasp, out_file))
             
+    def sub_stampede2(self, sub_file='sub.sh', queue='skx-normal', job_name=False, total_nodes=1, walltime=48, out_file='job.o', allocation='TG-DMR970008S', vasp='vasp_std', mpi='ibrun', command=False):
+        fsub = os.path.join(self.calc_dir, sub_file)
+        if 'skx' in queue:
+            tasks_per_node = 48
+        else:
+            tasks_per_node = 68
+        total_tasks = int(total_nodes*tasks_per_node)
+        if not job_name:
+            job_name = os.path.split(os.getcwd())[-1]
+        with open(fsub, 'w') as f:
+            f.write('#! /bin/bash\n')
+            f.write('#SBATCH -p %s\n' % queue)
+            f.write('#SBATCH -J %s\n' % job_name)
+            f.write('#SBATCH -N %s\n' % str(total_nodes))
+            f.write('#SBATCH -n %s\n' % str(total_tasks))
+            f.write('#SBATCH -t %s:00:00\n' % str(walltime))
+            f.write('#SBATCH -A %s\n' % allocation)
+        
+            if not command:
+                f.write('%s /home1/06479/tg857781/apps/vasp/VASP_KNL_SKX/%s > %s\n' % (mpi, vasp, out_file))
+           # module load intel/18.0.0
+           # module load impi/18.0.0
+            if command:
+                f.write('\n%s\n' % command)
+
 class VASPBasicAnalysis(object):
     """
     Parses VASP inputs and outputs for quick analysis
