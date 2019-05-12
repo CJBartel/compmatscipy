@@ -61,7 +61,8 @@ def make_magmom(ordered_els, els_to_sites, spin, config='fm'):
 def els_to_amts(ordered_els, fstructure):
     """
     Args:
-    
+    ordered_els (list) - list of els (str) in the order they appear in the structure
+    fstructure (path) - path to structure file to parse
     Returns:
         dictionary of {element (str) : number in calculated structure (int)}
     """
@@ -88,7 +89,7 @@ def els_to_amts(ordered_els, fstructure):
 def nsites(els_to_amts):
     """
     Args:
-        
+        els_to_amts (dict) - {el (str) : number of that el in structure (int)}
     Returns:
         number (int) of ions in calculated structure
     """
@@ -97,7 +98,9 @@ def nsites(els_to_amts):
 def idxs_to_els(ordered_els, els_to_amts, nsites):
     """
     Args:
-        
+        ordered_els (list) - list of els (str) in the order they apepar in a structure
+    els_to_amts (dict) - {el (str) : number of that el in structure (int)}
+    nsites (int) - number (int) of ions in calculated structure
     Returns:
         dictionary of index in structure (int) to the element (str) at that index
     """
@@ -118,6 +121,10 @@ def idxs_to_els(ordered_els, els_to_amts, nsites):
     
 def els_to_idxs(idxs_to_els):
     """
+    Args:
+    idxs_to_els (dict) - {index in structure (int) : el on that site (str)}
+    Returns:
+    {el (str) : [idxs (int) with that el]}
     """
     els = sorted(list(set(idxs_to_els.values())))
     els_to_idxs = {el : [] for el in els}
@@ -142,6 +149,9 @@ class VASPSetUp(object):
 
     @property
     def mag_info(self):
+        """
+        IN PROGRESS
+        """
         els_to_sites = self.els_to_idxs
         ordered_els = self.ordered_els_from_poscar()
         if len([el for el in ordered_els if el not in magnetic_els()]) == len(ordered_els):
@@ -164,7 +174,8 @@ class VASPSetUp(object):
                               'LASPH' : 'TRUE',
                               'ISIF' : 3}, 
                     additional={},
-                    skip=[]):
+                    skip=[],
+              MP=False):
         """
         Args:
             is_geometry_opt (bool) - True if geometry is to be optimized
@@ -174,7 +185,8 @@ class VASPSetUp(object):
             mag (bool or str) - False = non-magnetic; 'fm' = hs-ferro; 'afm-1' = hs-afm alternate; 'afm-2' = hs-afm blocksT
             standard (dict) - dictionary of parameters for starting point in INCAR
             additional (dict) - dictionary of parameters to enforce in INCAR
-        
+        skip (list) - parameters to exclude from INCAR
+        MP (bool or str) - False or "Relax" to impose MP Relax parameters
         Returns:
             writes INCAR file to calc_dir; returns dictionary of INCAR settings
         """
@@ -217,16 +229,27 @@ class VASPSetUp(object):
         for k in standard:
             d[k] = standard[k]
         
-        for k in additional:
-            d[k] = additional[k]
-            
         if mag:
             if 'ISPIN' not in d:
                 d['ISPIN'] = 2
             if 'MAGMOM' not in d:
                 magmom = make_magmom(self.ordered_els_from_poscar(), self.els_to_idxs, spin=5, config=mag)            
                 d['MAGMOM'] = magmom
+
         fincar = os.path.join(self.calc_dir, 'INCAR')
+        if MP == 'Relax':
+            from pymatgen.core.structure import Structure
+            from pymatgen.io.vasp.sets import MPRelaxSet
+            poscar = self.poscar()
+            s = Structure.from_file(poscar)
+            obj = MPRelaxSet(s)
+            obj.incar.write_file(fincar)
+            params = VASPBasicAnalysis(self.calc_dir).params_from_incar
+            d = params
+
+        for k in additional:
+            d[k] = additional[k]
+
         with open(fincar, 'w') as f:
             for k in d:
                 if k not in skip:
@@ -285,6 +308,44 @@ class VASPSetUp(object):
             if '0' in contents:
                 copyfile(contcar, poscar)
             return poscar
+
+    def scale_poscar(self, scaling):
+        """
+        Args:
+        scaling (float) - how much to scale lattice vectors (1 = no scaling)
+
+        Returns:
+        scaled POSCAR
+        """
+        poscar = self.poscar()
+        old_pocsar = os.path.join(calc_dir, 'unscaled_POSCAR')
+        copyfile(poscar, old_poscar)
+        with open(old_poscar) as old:
+            count = 0
+            with open(poscar, 'w') as new:
+                for line in old:
+                    count += 1
+                    if count == 2:
+                        new.write('%.3f\n' % scaling)
+                    else:
+                        new.write(line)
+        return poscar
+    
+    def perturb_poscar(self, perturbation):
+        """
+        Args:
+        perturbation (float) - distance in Ang to randomly perturb ions
+        
+        Returns:
+        POSCAR with random displacements
+        """
+        from pymatgen.core.structure import Structure
+        
+        poscar = self.poscar()
+        s = Structure.from_file(poscar)
+        s.perturb(perturbation)
+        s.to(fmt='poscar', filename=poscar)
+        return poscar
                 
     def ordered_els_from_poscar(self, copy_contcar=False):
         """
@@ -346,13 +407,14 @@ class VASPSetUp(object):
         """
         return nsites(self.els_to_amts)                      
                 
-    def potcar(self, els_in_poscar=False, specific_pots=False, machine='peregrine', src='potpaw'):
+    def potcar(self, els_in_poscar=False, specific_pots=False, machine='peregrine', src='potpaw', MP=False):
         """
         Args:
             els_in_poscar (list or False) - ordered list of elements (str) in POSCAR; if FALSE, read POSCAR
-            which_pot (bool or dict) - False to use VASP defaults; else dict of {el : which POTCAR (str)}
+            specific_pots (bool or dict) - False to use VASP defaults; else dict of {el : which POTCAR (str)}
             machine (str) - which computer or the path to your potcars
             src (str) - 'potpaw' implies SCAN-able POTs and configuration like ELEMENT_MOD/POTCAR
+        MP (bool) - if True, use MP pseudopotentials
         Returns:
             writes POTCAR file to calc_dir
         """
@@ -368,6 +430,10 @@ class VASPSetUp(object):
         if src != 'potpaw':
             print('havent configured this yet')
             return
+        if MP:
+            from compmatscipy.data.MP_pseudos import MP_pseudos_data
+            specific_pots = MP_pseudos_data()
+            path_to_pots = '/projects/thermochem/cbartel/pp/share/apps/repos/pyabinitio/resources/VASP_PSP/POT_GGA_PAW_PBE'
         with open(fpotcar, 'w') as f:
             for el in els_in_poscar:
                 if (specific_pots == False) or (el not in specific_pots):
