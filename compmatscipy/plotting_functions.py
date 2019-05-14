@@ -50,7 +50,39 @@ def set_rc_params():
               'ytick.major.width' : 1.5,
               'xtick.top' : True,
               'ytick.right' : True,
-              'axes.edgecolor' : 'black'}
+              'axes.edgecolor' : 'black',
+              'figure.figsize': [6, 4]}
+    for p in params:
+        mpl.rcParams[p] = params[p]
+    return params
+
+def set_rc_params_small():
+    """
+    Args:
+        
+    Returns:
+        dictionary of settings for mpl.rcParams
+    """
+    params = {'axes.linewidth' : 0.75,
+              'axes.unicode_minus' : False,
+              'figure.dpi' : 600,
+              'font.size' : 10,
+              'legend.frameon' : False,
+              'legend.handletextpad' : 0.2,
+              'legend.handlelength' : 0.5,
+              'legend.fontsize' : 6,
+              'mathtext.default' : 'regular',
+              'savefig.bbox' : 'tight',
+              'xtick.labelsize' : 10,
+              'ytick.labelsize' : 10,
+              'xtick.major.size' : 3,
+              'ytick.major.size' : 3,
+              'xtick.major.width' : 0.75,
+              'ytick.major.width' : 0.75,
+              'xtick.top' : True,
+              'ytick.right' : True,
+              'axes.edgecolor' : 'black',
+              'figure.figsize': [3, 2]}
     for p in params:
         mpl.rcParams[p] = params[p]
     return params
