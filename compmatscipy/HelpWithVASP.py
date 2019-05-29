@@ -346,6 +346,22 @@ class VASPSetUp(object):
         s.perturb(perturbation)
         s.to(fmt='poscar', filename=poscar)
         return poscar
+
+    def make_supercell(self, config):
+        """
+        Args:
+        config (tuple) - (a, b, c) to expand poscar
+
+        Returns: 
+        supercell of POSCAR
+        """
+        from pymatgen.core.structure import Structure
+
+        poscar = self.poscar()
+        s = Structure.from_file(poscar)
+        s.make_supercell(config)
+        s.to(fmt='poscar', filename=poscar)
+        return poscar
                 
     def ordered_els_from_poscar(self, copy_contcar=False):
         """
@@ -524,6 +540,29 @@ class VASPSetUp(object):
            # module load impi/18.0.0
             if command:
                 f.write('\n%s\n' % command)
+
+class DiffusionSetUp(object):
+    """
+    Set up NEB calculations of diffusion migration barriers
+    """
+    def __init__(self, pristine_contcar, path_to_sites, migrating_ion, head_calc_dir):
+        """
+        Args:
+        pristine_contcar (str) - path to optimized bulk structure
+        path_to_sites (dict) - {path_idx (int) : {'path' : (site1, site2, site3, ...),
+        'subpaths' : [(site1, site2), (site2, site3), ...]
+        -----for now, path_to_sites is set manually by inspection of structure
+        -----'path' : (site1, site2, site3, ...) means the ion moves from site1 -> site2 -> site3 -> ... in a full migration path
+        migrating_ion (str) - ion that is diffusing
+        head_calc_dir (str) - the parent directory where you want calculations to run
+        Returns:
+        
+        """
+        self.pristine_dir = pristine_contcar
+        self.path_to_sites = path_to_sites
+        self.migrating_ion = migrating_ion
+        self.head_calc_dir = head_calc_dir
+
 
 class VASPBasicAnalysis(object):
     """
