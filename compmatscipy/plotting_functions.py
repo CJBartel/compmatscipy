@@ -407,7 +407,7 @@ def hull2d(data,
     x_unstable = [x_unstable[i] for i in unstable_indices]
     y_stable = [0] + [data[stable_cmpds[i]]['Ef'] for i in stable_indices] + [0]
     y_unstable = [data[unstable_cmpds[i]]['Ef'] for i in unstable_indices]
-    
+
     ax = plt.plot(x_stable, y_stable,
                   color=tableau['blue'],
                   ls='-',
@@ -420,7 +420,7 @@ def hull2d(data,
                      color='white',
                      marker='^',
                      label='unstable')
-    
+
     if ylabel:
         ax = plt.ylabel(ylabel)
     if xlabel:
@@ -436,6 +436,10 @@ def hull2d(data,
     if leg:
         ax = plt.legend(loc=leg)
     return ax
+
+def hull3d():
+    return
+
 
 def hull3d():
     return
