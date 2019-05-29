@@ -4,7 +4,7 @@ import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.stats import linregress
 from compmatscipy.HelpWithVASP import VASPDOSAnalysis, ProcessDOS, VASPBasicAnalysis, LOBSTERAnalysis, DOEAnalysis
-
+from compmatscipy.CompAnalyzer import CompAnalyzer
 def tableau_colors():
     """
     Args:
@@ -387,6 +387,58 @@ def doe(calc_dir,
     if show:
         plt.show()
     return ax
+
+def hull2d(data, 
+           el1, el2, 
+           xlim, ylim, 
+           xticks, yticks,
+           xlabel, ylabel,
+           leg,
+           labels):
+    tableau = tableau_colors()
+    cmpds = [k for k in data if CompAnalyzer(k).els == sorted([el1, el2])]
+    stable_cmpds = [k for k in cmpds if data[k]['stability']]
+    unstable_cmpds = [k for k in cmpds if not data[k]['stability']]
+    x_stable = [CompAnalyzer(k).fractional_amt_of_el(el1) for k in stable_cmpds]
+    x_unstable = [CompAnalyzer(k).fractional_amt_of_el(el1) for k in unstable_cmpds]
+    stable_indices = np.argsort(x_stable)
+    unstable_indices = np.argsort(x_unstable)
+    x_stable = [0] + [x_stable[i] for i in stable_indices] + [1]
+    x_unstable = [x_unstable[i] for i in unstable_indices]
+    y_stable = [0] + [data[stable_cmpds[i]]['Ef'] for i in stable_indices] + [0]
+    y_unstable = [data[unstable_cmpds[i]]['Ef'] for i in unstable_indices]
+    
+    ax = plt.plot(x_stable, y_stable,
+                  color=tableau['blue'],
+                  ls='-',
+                  markeredgecolor=tableau['blue'],
+                  markerfacecolor='white',
+                  marker='o',
+                  label='stable')
+    ax = plt.scatter(x_unstable, y_unstable,
+                     edgecolor=tableau['red'],
+                     color='white',
+                     marker='^',
+                     label='unstable')
+    
+    if ylabel:
+        ax = plt.ylabel(ylabel)
+    if xlabel:
+        ax = plt.xlabel(r'$x\/in\/%s_{1-x}%s_x$' % (el2, el1))
+    ax = plt.xticks(xticks[1])
+    ax = plt.xlim(xlim)
+    ax = plt.yticks(yticks[1])
+    ax = plt.ylim(ylim)
+    if not yticks[0]:
+        ax = plt.gca().yaxis.set_ticklabels([])
+    if not xticks[0]:
+        ax = plt.gca().xaxis.set_ticklabels([])
+    if leg:
+        ax = plt.legend(loc=leg)
+    return ax
+
+def hull3d():
+    return
 
 def main():
     return

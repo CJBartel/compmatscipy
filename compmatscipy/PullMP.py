@@ -108,14 +108,17 @@ class PullMP(object):
             all_data = {}
             for space in spaces:
                 space = '-'.join(sorted(list(space)))
-                space_data = self.specific_query('blah.json', space, props, write_it=False)
+                space_data = self.specific_query('blah.json', space, props, remove_polymorphs, remake=True, write_it=False)
                 all_data[space] = space_data
+            if include_els:
+                for el in elements:
+                    all_data[el] = self.specific_query('blah.json', el, props, remove_polymorphs, True, False)
             id_key_dict = {}
             for k in all_data:
                 for ID in all_data[k]:
                     id_key_dict[ID] = all_data[k][ID]
-            if remove_polymorphs == True:
-                id_key_dict = self.get_ground_states_from_MP(id_key_dict)                      
+#            if remove_polymorphs == True:
+#                id_key_dict = self.get_ground_states_from_MP(id_key_dict)                      
             if write_it == True:
                 return write_json(id_key_dict, fjson)
             else:
