@@ -206,6 +206,8 @@ class VASPSetUp(object):
             d['GGA'] = 'PE'
         elif functional == 'scan':
             d['METAGGA'] = 'SCAN'
+        elif functional == 'rtpss':
+            d['METAGGA'] = 'Rtpss'
         elif functional == 'hse':
             d['GGA'] = 'PE'
             d['LHFCALC'] = 'TRUE'
@@ -247,6 +249,10 @@ class VASPSetUp(object):
             obj.incar.write_file(fincar)
             params = VASPBasicAnalysis(self.calc_dir).params_from_incar
             d = params
+            if functional == 'rtpss':
+                d['METAGGA'] = 'rtpss'
+                skip += ['GGA']
+                d['LASPH'] = 'TRUE'
 
         for k in additional:
             d[k] = additional[k]
@@ -319,7 +325,7 @@ class VASPSetUp(object):
         scaled POSCAR
         """
         poscar = self.poscar()
-        old_pocsar = os.path.join(calc_dir, 'unscaled_POSCAR')
+        old_poscar = os.path.join(calc_dir, 'unscaled_POSCAR')
         copyfile(poscar, old_poscar)
         with open(old_poscar) as old:
             count = 0
