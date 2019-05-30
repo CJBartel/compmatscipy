@@ -5,6 +5,7 @@ from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.handy_functions import read_json, write_json
 from scipy.integrate import simps
 from compmatscipy.data import atomic_valences_data
+from shutil import copyfile
 
 def magnetic_els():
     return ['Ti', 'Zr', 'Hf',
@@ -562,6 +563,70 @@ class DiffusionSetUp(object):
         self.path_to_sites = path_to_sites
         self.migrating_ion = migrating_ion
         self.head_calc_dir = head_calc_dir
+
+class SubstitutionSetUp(object):
+    """
+    replace ions and select low electrostatic structures
+    """
+    def __init__(self, template, poscar_dir, oxidation_states, host_ion, new_ion, fraction):
+        from pymatgen.core.structure import Structure
+        fposcar = os.path.join(poscar_dir, 'POSCAR')
+        copyfile(template, fposcar)
+        self.template = Structure.from_file(fposcar)
+        self.oxidation_states = oxidation_states
+        self.host_ion = host_ion
+        self.new_ion = new_ion
+        self.fraction = fraction
+    
+    @property
+    def _partial_occ(self):
+        from pymatgen.transformations.standard_transformations import SubstitutionTransformation, OxidationStateDecorationTransformation
+        species_map = {self.host_ion : {self.host_ion : 1-self.fraction, self.new_ion : self.fraction}}
+        obj = SubstitutionTransformation(species_map)
+        new = obj.apply_transformation(self.template)
+        obj = OxidationStateDecorationTransformation(self.oxidation_states)
+        return obj.apply_transformation(new)
+    
+    def _ordered_strucs(self, n_ordered, algo=0, symmetrized_structures=False, no_oxi_states=False):
+        from pymatgen.transformations.standard_transformations import OrderDisorderedStructureTransformation
+        obj = OrderDisorderedStructureTransformation(algo=algo, 
+                                                     symmetrized_structures=symmetrized_structures,
+                                                     no_oxi_states=no_oxi_states)
+        return obj.apply_transformation(self._partial_occ, n_ordered)
+
+    def unique_strucs(self, n_unique, 
+                      n_ordered, 
+                      algo=0, symmetrized_structures=False, no_oxi_states=False,
+                      ltol=0.005, stol=0.005, angle_tol=0.005,
+                      primitive_cell=False,
+                      scale=False,
+                      attempt_supercell=False):
+        from pymatgen.analysis.structure_matcher import StructureMatcher
+        strucs = self._ordered_strucs(n_ordered, algo=algo,
+                                      symmetrized_structures=symmetrized_structures,
+                                      no_oxi_states=no_oxi_states)
+        checks = {i : [] for i in range(len(strucs))}
+        for i in range(len(strucs)):
+            for j in range(len(strucs)):
+                if i == j:
+                    continue
+                s1, s2 = strucs[i]['structure'], strucs[j]['structure']
+                test = StructureMatcher(ltol=ltol, stol=stol, angle_tol=angle_tol, primitive_cell=primitive_cell, scale=scale, attempt_supercell=attempt_supercell).fit(s1, s2)
+                if test:
+                    checks[i].append(j)
+        pairs = [tuple(sorted((i, j))) for i in checks for j in checks[i]]
+        pairs = set(pairs)
+        good_ones = []
+        for i in checks:
+            if len(checks[i]) == 0:
+                good_ones.append(i)
+        for p in pairs:
+            if p[0] not in good_ones:
+                good_ones.append(p[0])
+        if len(good_ones) > n_unique:
+            return [strucs[i] for i in good_ones][:n_unique]
+        else:
+            return [strucs[i] for i in good_ones]
 
 
 class VASPBasicAnalysis(object):
