@@ -262,6 +262,23 @@ class VASPSetUp(object):
                 if k not in skip:
                     f.write(' = '.join([k, str(d[k])])+'\n')
         return d
+
+    def modify_incar(self, enforce={}):
+        incar = os.path.join(self.calc_dir, 'INCAR')
+        old_incar = os.path.join(self.calc_dir, 'old_INCAR')
+        copyfile(incar, old_incar)
+        with open(incar, 'w') as new:
+            with open(old_incar) as old:
+                for line in old:
+                    skip = False
+                    for key in enforce:
+                        if key in line:
+                            skip = True
+                    if not skip:
+                        new.write(line)
+                for key in enforce:
+                    line = ' = '.join([str(key), str(enforce[key])])+'\n'
+                    new.write(line)
     
     def kpoints(self, discretizations=False, grid=False, kppa=False):
         """
