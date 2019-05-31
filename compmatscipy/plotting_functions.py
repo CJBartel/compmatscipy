@@ -5,6 +5,8 @@ from scipy.ndimage.filters import gaussian_filter1d
 from scipy.stats import linregress
 from compmatscipy.HelpWithVASP import VASPDOSAnalysis, ProcessDOS, VASPBasicAnalysis, LOBSTERAnalysis, DOEAnalysis
 from compmatscipy.CompAnalyzer import CompAnalyzer
+
+
 def tableau_colors():
     """
     Args:

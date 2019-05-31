@@ -223,6 +223,11 @@ class AnalyzeHull(object):
         return self.hull.vertices
     
     @property
+    def hull_simplices(self):
+        
+        return self.hull.simplices
+    
+    @property
     def stable_compounds(self):
         """
         Args:
