@@ -322,7 +322,7 @@ class AnalyzeHull(object):
         b = self.b_for_decomp_solver(compound, competing_compounds)
         Es = self.Es_for_decomp_solver(compound, competing_compounds)
         n0 = [0.01 for c in competing_compounds]
-        bounds = [(0,100) for c in competing_compounds]
+        bounds = [(0,10001) for c in competing_compounds]
         def competing_formation_energy(nj):
             nj = np.array(nj)
             return np.dot(nj, Es)
