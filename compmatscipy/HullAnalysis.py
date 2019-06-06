@@ -477,7 +477,7 @@ class AnalyzeHull(object):
                 
 def main():
     d = read_json(os.path.join('/Users/chrisbartel/Dropbox/postdoc/projects/paper-db/data/MP/MP_query_gs.json'))
-    d = {k : d[k] for k in list(d.keys())[::5]}
+    d = {k : d[k] for k in list(d.keys())[::500]}
     print(len(d))
     obj = GetHullInputData(d, 'H')
     from time import time
@@ -488,16 +488,17 @@ def main():
     end = time()
     print(end - start) 
     
-    start = time()
-    new_spaces = obj.new_chemical_subspaces
-    #print(spaces)
-    print(len(new_spaces))
-    end = time()
-    print(end - start)
+
+    
+    hullin = obj.hull_data(fjson=False, remake=True)
+    
+    hullout = AnalyzeHull(hullin, list(hullin.keys())[0]).hull_output_data
     
     
     
-    return d
+    
+    
+    return hullout
     return
 
 if __name__ == '__main__':
