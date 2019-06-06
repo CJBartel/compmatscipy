@@ -20,7 +20,9 @@ class GetHullInputData(object):
         Returns:
             dictionary of {formula (str) : formation energy (float)}
         """
-        self.compound_to_energy = {k : compound_to_energy[k][formation_energy_key] for k in compound_to_energy}
+        self.compound_to_energy = {k : compound_to_energy[k][formation_energy_key] 
+                                    for k in compound_to_energy
+                                    if CompAnalyzer(k).num_els_in_formula > 1}
         
     @property
     def compounds(self):
@@ -318,77 +320,26 @@ class AnalyzeHull(object):
         b = self.b_for_decomp_solver(compound, competing_compounds)
         Es = self.Es_for_decomp_solver(compound, competing_compounds)
         n0 = [0.01 for c in competing_compounds]
-        bounds = [(0,100001) for c in competing_compounds]
+        max_bound = CompAnalyzer(compound).num_atoms_in_formula()
+        bounds = [(0,max_bound) for c in competing_compounds]
         def competing_formation_energy(nj):
             nj = np.array(nj)
             return np.dot(nj, Es)
         constraints = [{'type' : 'eq',
                         'fun' : lambda x: np.dot(A, x)-b}]
-        tol, maxiter, disp = 1e-4, 100, False
-        solution =  minimize(competing_formation_energy,n0,
-                             method='SLSQP',bounds=bounds,
-                             constraints=constraints,tol=tol,
-                             options={'maxiter' : maxiter,
-                                      'disp' : disp})
-        if solution.success:
-            return solution
+        tol, maxiter, disp = 1e-4, 1000, False
+        for tol in [1e-4, 1e-3, 5e-2, 1e-2]:
+            print(tol)
+            solution =  minimize(competing_formation_energy,n0,
+                                 method='SLSQP',bounds=bounds,
+                                 constraints=constraints,tol=tol,
+                                 options={'maxiter' : maxiter,
+                                          'disp' : disp})
+            if solution.success:
+                return solution
+        return solution
         
-        tol = 1e-3
-        solution =  minimize(competing_formation_energy,n0,
-                             method='SLSQP',bounds=bounds,
-                             constraints=constraints,tol=tol,
-                             options={'maxiter' : maxiter,
-                                      'disp' : disp})
-        if solution.success:
-            return solution
         
-        bounds = [(0, 10001) for c in competing_compounds]
-        solution =  minimize(competing_formation_energy,n0,
-                             method='SLSQP',bounds=bounds,
-                             constraints=constraints,tol=tol,
-                             options={'maxiter' : maxiter,
-                                      'disp' : disp})
-        if solution.success:
-            return solution
-        
-        bounds = [(0, 1001) for c in competing_compounds]
-        solution =  minimize(competing_formation_energy,n0,
-                             method='SLSQP',bounds=bounds,
-                             constraints=constraints,tol=tol,
-                             options={'maxiter' : maxiter,
-                                      'disp' : disp})
-        if solution.success:
-            return solution 
-        
-        bounds = [(0, 101) for c in competing_compounds]
-        solution =  minimize(competing_formation_energy,n0,
-                             method='SLSQP',bounds=bounds,
-                             constraints=constraints,tol=tol,
-                             options={'maxiter' : maxiter,
-                                      'disp' : disp})
-        if solution.success:
-            return solution
-        
-        bounds = [(0, 100001) for c in competing_compounds]
-        maxiter = 1000
-        tol = 1e-4
-        solution =  minimize(competing_formation_energy,n0,
-                             method='SLSQP',bounds=bounds,
-                             constraints=constraints,tol=tol,
-                             options={'maxiter' : maxiter,
-                                      'disp' : disp})
-        if solution.success:
-            return solution
-        
-        tol = 1e-3
-        solution =  minimize(competing_formation_energy,n0,
-                             method='SLSQP',bounds=bounds,
-                             constraints=constraints,tol=tol,
-                             options={'maxiter' : maxiter,
-                                      'disp' : disp})
-        if solution.success:
-            return solution
-    
     def decomp_products(self, compound):
         """
         Args:
@@ -477,7 +428,7 @@ class AnalyzeHull(object):
                 
 def main():
     d = read_json(os.path.join('/Users/chrisbartel/Dropbox/postdoc/projects/paper-db/data/MP/MP_query_gs.json'))
-    d = {k : d[k] for k in list(d.keys())[::500]}
+    d = {k : d[k] for k in list(d.keys())[::100]}
     print(len(d))
     obj = GetHullInputData(d, 'H')
     from time import time
@@ -492,7 +443,9 @@ def main():
     
     hullin = obj.hull_data(fjson=False, remake=True)
     
-    hullout = AnalyzeHull(hullin, list(hullin.keys())[0]).hull_output_data
+    for space in hullin:
+        print(space)
+        hullout = AnalyzeHull(hullin, space).hull_output_data
     
     
     
