@@ -72,7 +72,7 @@ class GetHullInputData(object):
         """ 
         chemical_spaces_and_subspaces = self.chemical_spaces_and_subspaces
         chemical_subspaces = self.chemical_subspaces
-        return [s for s in chemical_spaces_and_subspaces if s not in chemical_subspaces]
+        return [s for s in chemical_spaces_and_subspaces if s not in chemical_subspaces if len(s) > 1]
     
     def hull_data(self, fjson=False, remake=False):
         """
