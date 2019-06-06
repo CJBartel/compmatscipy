@@ -122,7 +122,22 @@ class AnalyzeHull(object):
             grabs only the relevant sub-dict from hull_data
             changes chemical space to tuple (el1, el2, ...)
         """
-        self.hull_data = hull_data[chemical_space]
+        tmp_hull_data = hull_data[chemical_space]
+        # below is unnecessary except for this one case where I dont want to regenerate a hullin.json
+        keys_to_remove = [k for k in tmp_hull_data 
+                                  if CompAnalyzer(k).num_els_in_formula == 1]
+        keys_to_remove = [k for k in keys_to_remove
+                                  if ('1' in k) or
+                                     ('2' in k) or 
+                                     ('3' in k) or
+                                     ('4' in k) or
+                                     ('5' in k) or
+                                     ('6' in k) or 
+                                     ('7' in k) or
+                                     ('8' in k) or 
+                                     ('9' in k) or 
+                                     ('0' in k)]
+        self.hull_data = {k : tmp_hull_data[k] for k in tmp_hull_data if k not in keys_to_remove}
         self.chemical_space = tuple(chemical_space.split('_'))
         
     @property 
@@ -430,7 +445,8 @@ class AnalyzeHull(object):
                 
 def main():
     d = read_json(os.path.join('/Users/chrisbartel/Dropbox/postdoc/projects/paper-db/data/MP/MP_query_gs.json'))
-    d = {k : d[k] for k in list(d.keys())[::100]}
+    d = {k : d[k] for k in d if (('Ce' in k) and ('N' in k)) or (('Mn' in k) and ('N' in k))}
+    d['N2'] = {'H' : 0}
     print(len(d))
     obj = GetHullInputData(d, 'H')
     from time import time
@@ -445,7 +461,7 @@ def main():
     
     hullin = obj.hull_data(fjson=False, remake=True)
     
-    for space in hullin:
+    for space in ['Ce_Mn_N']:
         print(space)
         hullout = AnalyzeHull(hullin, space).hull_output_data
     
@@ -453,7 +469,7 @@ def main():
     
     
     
-    return hullout
+    return hullin, hullout
     return
 
 if __name__ == '__main__':
