@@ -53,16 +53,12 @@ class GetHullInputData(object):
                 (Ca, O, Ti) is the space of CaTiO3 and Ca2TiO4
                 if CaTiO3 and CaO are found, (Ca, O) is a subspace
         """        
-        subspaces = []
         all_spaces = self.chemical_spaces_and_subspaces
-        for space1 in all_spaces:
-            if space1 not in subspaces:
-                for space2 in all_spaces[::-1]:
-                    if space1 == space2:
-                        continue
-                    if set(space1).issubset(set(space2)):
-                        subspaces.append(space1)
-        return subspaces
+        subspaces = [all_spaces[i] for i in range(len(all_spaces)) 
+                                   for j in range(len(all_spaces)) 
+                                   if set(all_spaces[i]).issubset(all_spaces[j]) 
+                                   if all_spaces[i] != all_spaces[j]]
+        return list(set(subspaces))
     
     @property
     def hull_spaces(self):
@@ -417,7 +413,29 @@ class AnalyzeHull(object):
         return data
                 
 def main():
+    d = read_json(os.path.join('/Users/chrisbartel/Dropbox/postdoc/projects/paper-db/data/MP/MP_query_gs.json'))
+    d = {k : d[k] for k in list(d.keys())[::5]}
+    print(len(d))
+    obj = GetHullInputData(d, 'H')
+    from time import time
+    start = time()
+    old_spaces = obj.chemical_subspaces
+    #print(spaces)
+    print(len(old_spaces))
+    end = time()
+    print(end - start) 
+    
+    start = time()
+    new_spaces = obj.new_chemical_subspaces
+    #print(spaces)
+    print(len(new_spaces))
+    end = time()
+    print(end - start)
+    
+    
+    
+    return d
     return
 
 if __name__ == '__main__':
-    main()
+    d = main()
