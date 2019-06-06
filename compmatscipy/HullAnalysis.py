@@ -324,12 +324,70 @@ class AnalyzeHull(object):
             return np.dot(nj, Es)
         constraints = [{'type' : 'eq',
                         'fun' : lambda x: np.dot(A, x)-b}]
-        tol, maxiter, disp = 1e-4, 1000, False
-        return minimize(competing_formation_energy,n0,
-                     method='SLSQP',bounds=bounds,
-                     constraints=constraints,tol=tol,
-                     options={'maxiter' : maxiter,
-                              'disp' : disp})
+        tol, maxiter, disp = 1e-4, 100, False
+        solution =  minimize(competing_formation_energy,n0,
+                             method='SLSQP',bounds=bounds,
+                             constraints=constraints,tol=tol,
+                             options={'maxiter' : maxiter,
+                                      'disp' : disp})
+        if solution.success:
+            return solution
+        
+        tol = 1e-3
+        solution =  minimize(competing_formation_energy,n0,
+                             method='SLSQP',bounds=bounds,
+                             constraints=constraints,tol=tol,
+                             options={'maxiter' : maxiter,
+                                      'disp' : disp})
+        if solution.success:
+            return solution
+        
+        bounds = [(0, 10001) for c in competing_compounds]
+        solution =  minimize(competing_formation_energy,n0,
+                             method='SLSQP',bounds=bounds,
+                             constraints=constraints,tol=tol,
+                             options={'maxiter' : maxiter,
+                                      'disp' : disp})
+        if solution.success:
+            return solution
+        
+        bounds = [(0, 1001) for c in competing_compounds]
+        solution =  minimize(competing_formation_energy,n0,
+                             method='SLSQP',bounds=bounds,
+                             constraints=constraints,tol=tol,
+                             options={'maxiter' : maxiter,
+                                      'disp' : disp})
+        if solution.success:
+            return solution 
+        
+        bounds = [(0, 101) for c in competing_compounds]
+        solution =  minimize(competing_formation_energy,n0,
+                             method='SLSQP',bounds=bounds,
+                             constraints=constraints,tol=tol,
+                             options={'maxiter' : maxiter,
+                                      'disp' : disp})
+        if solution.success:
+            return solution
+        
+        bounds = [(0, 100001) for c in competing_compounds]
+        maxiter = 1000
+        tol = 1e-4
+        solution =  minimize(competing_formation_energy,n0,
+                             method='SLSQP',bounds=bounds,
+                             constraints=constraints,tol=tol,
+                             options={'maxiter' : maxiter,
+                                      'disp' : disp})
+        if solution.success:
+            return solution
+        
+        tol = 1e-3
+        solution =  minimize(competing_formation_energy,n0,
+                             method='SLSQP',bounds=bounds,
+                             constraints=constraints,tol=tol,
+                             options={'maxiter' : maxiter,
+                                      'disp' : disp})
+        if solution.success:
+            return solution
     
     def decomp_products(self, compound):
         """
@@ -376,6 +434,8 @@ class AnalyzeHull(object):
         """
         hull_data = self.hull_data
         decomp_products = self.decomp_products(compound)
+        if isinstance(decomp_products, float):
+            return np.nan
         decomp_enthalpy = 0
         for k in decomp_products:
             decomp_enthalpy += decomp_products[k]['amt']*decomp_products[k]['E']*CompAnalyzer(k).num_atoms_in_formula()
@@ -404,6 +464,9 @@ class AnalyzeHull(object):
             Ef = hull_data[c]['E']
             Ed = self.decomp_energy(c)
             decomp_products = self.decomp_products(c)
+            if isinstance(decomp_products, float):
+                data[c] = np.nan
+                continue
             decomp_rxn = ['_'.join([str(np.round(decomp_products[k]['amt'], 4)), k]) for k in decomp_products]
             decomp_rxn = ' + '.join(decomp_rxn)
             data[c] = {'Ef' : Ef,
