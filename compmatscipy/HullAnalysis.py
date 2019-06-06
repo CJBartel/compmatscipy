@@ -328,11 +328,13 @@ class AnalyzeHull(object):
         constraints = [{'type' : 'eq',
                         'fun' : lambda x: np.dot(A, x)-b}]
         tol, maxiter, disp = 1e-4, 1000, False
-        for tol in [1e-4, 1e-3, 5e-2, 1e-2]:
-            print(tol)
-            solution =  minimize(competing_formation_energy,n0,
-                                 method='SLSQP',bounds=bounds,
-                                 constraints=constraints,tol=tol,
+        for tol in [1e-4, 1e-3, 5e-3, 1e-2]:
+            solution =  minimize(competing_formation_energy,
+                                 n0,
+                                 method='SLSQP',
+                                 bounds=bounds,
+                                 constraints=constraints,
+                                 tol=tol,
                                  options={'maxiter' : maxiter,
                                           'disp' : disp})
             if solution.success:
@@ -358,7 +360,7 @@ class AnalyzeHull(object):
             return {el : {'amt' : CompAnalyzer(compound).amt_of_el(el),
                           'E' : 0} for el in CompAnalyzer(compound).els}
         solution = self.decomp_solution(compound)
-        if solution.success == True:
+        if solution.success:
             resulting_amts = solution.x
         elif hull_data[compound]['E'] > 0:
             return {el : {'amt' : CompAnalyzer(compound).amt_of_el(el),
