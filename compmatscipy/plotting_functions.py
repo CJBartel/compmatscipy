@@ -419,7 +419,7 @@ def hull2d(data,
                   label='stable')
     ax = plt.scatter(x_unstable, y_unstable,
                      edgecolor=tableau['red'],
-                     color='white',
+                     facecolor='white',
                      marker='^',
                      label='unstable')
 

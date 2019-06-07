@@ -122,23 +122,32 @@ class AnalyzeHull(object):
             grabs only the relevant sub-dict from hull_data
             changes chemical space to tuple (el1, el2, ...)
         """
-        tmp_hull_data = hull_data[chemical_space]
+        hull_data = hull_data[chemical_space]
+
         # below is unnecessary except for this one case where I dont want to regenerate a hullin.json
-        keys_to_remove = [k for k in tmp_hull_data 
-                                  if CompAnalyzer(k).num_els_in_formula == 1]
-        keys_to_remove = [k for k in keys_to_remove
-                                  if ('1' in k) or
-                                     ('2' in k) or 
-                                     ('3' in k) or
-                                     ('4' in k) or
-                                     ('5' in k) or
-                                     ('6' in k) or 
-                                     ('7' in k) or
-                                     ('8' in k) or 
-                                     ('9' in k) or 
-                                     ('0' in k)]
-        self.hull_data = {k : tmp_hull_data[k] for k in tmp_hull_data if k not in keys_to_remove}
-        self.chemical_space = tuple(chemical_space.split('_'))
+#        keys_to_remove = [k for k in tmp_hull_data 
+#                                  if CompAnalyzer(k).num_els_in_formula == 1]
+#        keys_to_remove = [k for k in keys_to_remove
+#                                  if ('1' in k) or
+#                                     ('2' in k) or 
+#                                     ('3' in k) or
+#                                     ('4' in k) or
+#                                     ('5' in k) or
+#                                     ('6' in k) or 
+#                                     ('7' in k) or
+#                                     ('8' in k) or 
+#                                     ('9' in k) or 
+#                                     ('0' in k)]
+#        self.hull_data = {k : tmp_hull_data[k] for k in tmp_hull_data if k not in keys_to_remove}
+        els = chemical_space.split('_')
+        for el in els:
+            hull_data[el] = {'E' : 0,
+                             'amts' : {els[i] : 
+                                        CompAnalyzer(el).fractional_amt_of_el(els[i])
+                                        for i in range(len(els))}}
+        self.hull_data = hull_data
+        #print(self.hull_data)
+        self.chemical_space = tuple(els)
         
     @property 
     def sorted_compounds(self):
@@ -442,34 +451,72 @@ class AnalyzeHull(object):
                        'rxn' : decomp_rxn,
                        'stability' : stability}
         return data
-                
+    
+    def cmpd_hull_output_data(self, compound):
+        """
+        Args:
+            compound (str) - formula to get data for
+            
+        Returns:
+            hull_output_data but only for single compound
+        """
+        data = {}
+        hull_data = self.hull_data
+        stable_compounds = self.stable_compounds
+        c = compound
+        if c in stable_compounds:
+            stability = True
+        else:
+            stability = False
+        Ef = hull_data[c]['E']
+        Ed = self.decomp_energy(c)
+        decomp_products = self.decomp_products(c)
+        if isinstance(decomp_products, float):
+            return {c : np.nan}
+        decomp_rxn = ['_'.join([str(np.round(decomp_products[k]['amt'], 4)), k]) for k in decomp_products]
+        decomp_rxn = ' + '.join(decomp_rxn)
+        data[c] = {'Ef' : Ef,
+                   'Ed' : Ed,
+                   'rxn' : decomp_rxn,
+                   'stability' : stability}
+        return data        
+        
 def main():
     d = read_json(os.path.join('/Users/chrisbartel/Dropbox/postdoc/projects/paper-db/data/MP/MP_query_gs.json'))
     d = {k : d[k] for k in d if (('Ce' in k) and ('N' in k)) or (('Mn' in k) and ('N' in k))}
-    d['N2'] = {'H' : 0}
     print(len(d))
     obj = GetHullInputData(d, 'H')
     from time import time
     start = time()
-    old_spaces = obj.chemical_subspaces
-    #print(spaces)
-    print(len(old_spaces))
-    end = time()
-    print(end - start) 
-    
 
+    hullin = obj.hull_data(False, False)
+    print(len(hullin))
     
-    hullin = obj.hull_data(fjson=False, remake=True)
+    compounds = [list(hullin[space].keys()) for space in hullin]
+    all_compounds = [j for i in compounds for j in i]
+    compounds = list(set([j for i in compounds for j in i]))
     
-    for space in ['Ce_Mn_N']:
+    compound_to_smallest_space_size = {c : np.min([s.count('_') for s in hullin if c in hullin[s]]) for c in compounds}    
+    
+    compound_to_space = {c : [s for s in hullin if c in hullin[s] if s.count('_') == compound_to_smallest_space_size[c]][0] for c in compounds}
+    
+    
+#    for compound in compound_to_space:
+#        print(compound)
+#        space = compound_to_space[compound]
+#        hullout = AnalyzeHull(hullin, space).cmpd_hull_output_data(compound)
+
+    for space in hullin:
         print(space)
         hullout = AnalyzeHull(hullin, space).hull_output_data
     
+    #{c : np.min([compound_to_spaces[c][i] for i in range(len(compound_to_spaces[c]]))) for c in compounds}
     
     
     
     
-    return hullin, hullout
+    end = time()
+    print(end - start)
     return
 
 if __name__ == '__main__':
