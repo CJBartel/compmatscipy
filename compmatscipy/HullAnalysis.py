@@ -125,8 +125,8 @@ class AnalyzeHull(object):
         hull_data = hull_data[chemical_space]
 
         # below is unnecessary except for this one case where I dont want to regenerate a hullin.json
-#        keys_to_remove = [k for k in tmp_hull_data 
-#                                  if CompAnalyzer(k).num_els_in_formula == 1]
+        keys_to_remove = [k for k in hull_data 
+                                  if CompAnalyzer(k).num_els_in_formula == 1]
 #        keys_to_remove = [k for k in keys_to_remove
 #                                  if ('1' in k) or
 #                                     ('2' in k) or 
@@ -501,17 +501,10 @@ def main():
     compound_to_space = {c : [s for s in hullin if c in hullin[s] if s.count('_') == compound_to_smallest_space_size[c]][0] for c in compounds}
     
     
-#    for compound in compound_to_space:
-#        print(compound)
-#        space = compound_to_space[compound]
-#        hullout = AnalyzeHull(hullin, space).cmpd_hull_output_data(compound)
-
-    for space in hullin:
-        print(space)
-        hullout = AnalyzeHull(hullin, space).hull_output_data
-    
-    #{c : np.min([compound_to_spaces[c][i] for i in range(len(compound_to_spaces[c]]))) for c in compounds}
-    
+    for compound in compound_to_space:
+        print(compound)
+        space = compound_to_space[compound]
+        hullout = AnalyzeHull(hullin, space).cmpd_hull_output_data(compound)    
     
     
     
