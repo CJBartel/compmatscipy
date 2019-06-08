@@ -127,6 +127,7 @@ class AnalyzeHull(object):
         # below is unnecessary except for this one case where I dont want to regenerate a hullin.json
         keys_to_remove = [k for k in hull_data 
                                   if CompAnalyzer(k).num_els_in_formula == 1]
+        hull_data = {k : hull_data[k] for k in hull_data if k not in keys_to_remove}
 #        keys_to_remove = [k for k in keys_to_remove
 #                                  if ('1' in k) or
 #                                     ('2' in k) or 
