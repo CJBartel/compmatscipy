@@ -2,6 +2,7 @@ import re
 from itertools import combinations
 import numpy as np
 from compmatscipy.handy_functions import gcd
+from compmatscipy.data.atomic_electronegativities import atomic_electronegativities_data
 
 class CompAnalyzer(object):
     """
@@ -61,10 +62,17 @@ class CompAnalyzer(object):
             chemical composition (str) that is exactly one formula unit
         """
         amts = [int(i) for i in re.findall('\d+', formula)]
-        if (len(amts) == 1) or (1 in amts):
+        if 1 in amts:
             return formula
+        elif amts == [2]:
+            return formula
+        elif len(amts) == 1:
+            els = re.findall('[A-Z][a-z]?', formula)
+            return els[0]+'1'
         else:
             els = re.findall('[A-Z][a-z]?', formula)
+            #print('els = %s' % str(els))
+            #print('amts = %s' % str(amts))
             amt_combinations = list(combinations(amts, 2))
             individual_gcds = [gcd(combination[0], combination[1]) for combination in amt_combinations]
             overall_gcd = np.min(individual_gcds)
@@ -110,6 +118,63 @@ class CompAnalyzer(object):
             return self.reduce_formula(unreduced_formula)
         else:
             return unreduced_formula
+        
+    def pretty_formula(self, reduce=True):
+        """
+        Args:
+            reduce (bool) - reduce multiple formula units to one or not
+        
+        Returns:
+            formula with no 1's with els sorted ascending electronegativities
+        """
+        els = self.els
+        std_formula = self.std_formula(reduce)
+        el_to_amt = self.el_to_amt(std_formula)
+        chis = atomic_electronegativities_data()
+        el_to_chi = dict(zip(els, [chis[el] for el in els]))
+        el_order = sorted(el_to_chi, key=el_to_chi.get)
+        formula = ''
+        for el in el_order:
+            amt = el_to_amt[el]
+            if amt > 0:
+                formula += el
+            if amt == 1:
+                continue
+            elif amt > 1:
+                formula += str(amt)
+            else:
+                raise ValueError('strange formula...')
+                return np.nan
+        return formula
+    
+    def pretty_label(self, reduce=True):
+        """
+        Args:
+            reduce (bool) - reduce multiple formula units to one or not
+        
+        Returns:
+            formula with no 1's with els sorted ascending electronegativities including subscripts
+        """
+        els = self.els
+        std_formula = self.std_formula(reduce)
+        el_to_amt = self.el_to_amt(std_formula)
+        chis = atomic_electronegativities_data()
+        el_to_chi = dict(zip(els, [chis[el] for el in els]))
+        el_order = sorted(el_to_chi, key=el_to_chi.get)
+        formula = r'$'
+        for el in el_order:
+            amt = el_to_amt[el]
+            if amt > 0:
+                formula += el
+            if amt == 1:
+                continue
+            elif amt > 1:
+                formula += '_{%s}' % str(amt)
+            else:
+                raise ValueError('strange formula...')
+                return np.nan
+        formula += '$'
+        return formula
         
     @property
     def els(self):

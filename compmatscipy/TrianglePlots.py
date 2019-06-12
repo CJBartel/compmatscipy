@@ -106,14 +106,18 @@ class TrianglePD(object):
             adds tie lines to triangle
         """
         els = self.els
-        hull_data = GetHullInputData(self.input_data, 'Ef').hull_data()
+        hull_data = GetHullInputData(self.input_data, 'Ef').hull_data(remake=True)
         obj = AnalyzeHull(hull_data, self.space)
         simplices = obj.hull_simplices
         lines = uniquelines(simplices)
         sorted_cmpds = obj.sorted_compounds
+        stable_cmpds = obj.stable_compounds
+        print(stable_cmpds)
         line_data = {}
         for l in lines:
             cmpds = (sorted_cmpds[l[0]], sorted_cmpds[l[1]])
+            if (cmpds[0] not in stable_cmpds) or (cmpds[0] not in stable_cmpds):
+                continue
             line_data[l] = {'cmpds' : cmpds}
             line_data[l]['pts'] = tuple([cmpd_to_pt(cmpd, els) for cmpd in cmpds])
             x = (line_data[l]['pts'][0][0], line_data[l]['pts'][1][0])
@@ -176,20 +180,23 @@ class TrianglePD(object):
         count = 0
         for cmpd in cmpds_to_label:
             pt = cmpd_to_pt(cmpd, self.els)
+            tri = [CompAnalyzer(cmpd).fractional_amt_of_el(el) for el in self.els]
             label = get_label(cmpd, el_order_for_label)
             if cmpd in specify_labels:
                 xpos, xalign, ypos, yalign = [specify_labels[cmpd][k] for k in ['xpos', 'xalign', 'ypos', 'yalign']]
-            elif pt[1] == 0:
+            elif tri[1] in (0, 1):
                 xpos = pt[0]
                 xalign = 'center'
                 ypos = -0.02
                 yalign = 'top'
-            elif (pt[1] == np.sqrt(3)/2 * pt[0]) and (pt[0] <= 0.5):
+
+            elif tri[0] in (0, 1):
                 xpos = pt[0]-0.02
                 xalign = 'right'
                 ypos = pt[1]
                 yalign = 'center'
-            elif (pt[1] == -np.sqrt(3)*pt[0] + np.sqrt(3)) and (pt[0] >= 0.5):
+                
+            elif tri[2] in (0, 1):
                 xpos = pt[0]+0.02
                 xalign = 'left'
                 ypos = pt[1]
@@ -214,6 +221,15 @@ class TrianglePD(object):
                           verticalalignment=yalign, 
                           fontsize=pt_label_size,
                           color=color, zorder=100)
+            
+    @property
+    def _mask_outside(self):
+        t1 = plt.Polygon(np.array([[0,0], [0, np.sqrt(3)/2], [0.5, np.sqrt(3)/2]]), color='white')
+        ax = plt.gca().add_patch(t1)
+        t1 = plt.Polygon(np.array([[1,0], [1, np.sqrt(3)/2], [0.5, np.sqrt(3)/2]]), color='white')
+        ax = plt.gca().add_patch(t1)
+        ax = plt.ylim([-0.02, np.sqrt(3)/2])
+        return ax
     
     def ax3d(self,
              el_order_for_label=False,
@@ -230,7 +246,8 @@ class TrianglePD(object):
              pt_label_size=16,
              specify_labels={},
              only_certain_labels=[],
-             skip_certain_labels=[]):
+             skip_certain_labels=[],
+             show_lines=True):
         """
         Args:
             remove_spines (bool) - remove x, y spines or not
@@ -246,7 +263,8 @@ class TrianglePD(object):
         if remove_spines:
             ax = self._remove_spines_and_ticks()
         ax = self._add_points()
-        ax = self._add_lines(tie_lw)
+        if show_lines:
+            ax = self._add_lines(tie_lw)
         if label_els:
             ax = self._label_els( 
                              el_label_size,
@@ -341,7 +359,7 @@ def get_label(cmpd, els):
         label += el
         if amt == 1:
             continue
-        label += '_%s' % amt
+        label += '_{%s}' % amt
     label += '$'
     return label
 
