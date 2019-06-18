@@ -173,7 +173,8 @@ class VASPSetUp(object):
                               'PREC' : 'Accurate',
                               'LORBIT' : 11,
                               'LASPH' : 'TRUE',
-                              'ISIF' : 3}, 
+                              'ISIF' : 3,
+                              'ISYM' : 0}, 
                     additional={},
                     skip=[],
               MP=False):
