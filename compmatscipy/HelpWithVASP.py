@@ -208,7 +208,7 @@ class VASPSetUp(object):
         elif functional == 'scan':
             d['METAGGA'] = 'SCAN'
         elif functional == 'rtpss':
-            d['METAGGA'] = 'Rtpss'
+            d['METAGGA'] = 'RTPSS'
         elif functional == 'hse':
             d['GGA'] = 'PE'
             d['LHFCALC'] = 'TRUE'
@@ -257,7 +257,10 @@ class VASPSetUp(object):
             params = VASPBasicAnalysis(self.calc_dir).params_from_incar
             d = params
             if functional == 'rtpss':
-                d['METAGGA'] = 'rtpss'
+                d['METAGGA'] = 'RTPSS'
+            elif functional == 'scan':
+                d['METAGGA'] = 'SCAN'
+            if functional in ['rtpss', 'scan']:
                 skip += ['GGA']
                 d['LASPH'] = 'TRUE'
                 d['ALGO'] = 'All'
