@@ -219,6 +219,12 @@ class VASPSetUp(object):
             print('are you sure you want that functional?')
             d = np.nan
             
+        if functional in ['scan', 'rtpss']:
+            d['LASPH'] = 'TRUE'
+            d['ALGO'] = 'All'
+            d['ADDGRID'] = 'TRUE'
+            d['ISMEAR'] = 0
+            
         if dos:
             d['NEDOS'] = 2500
         
@@ -254,6 +260,9 @@ class VASPSetUp(object):
                 d['METAGGA'] = 'rtpss'
                 skip += ['GGA']
                 d['LASPH'] = 'TRUE'
+                d['ALGO'] = 'All'
+                d['ADDGRID'] = 'TRUE'
+                d['ISMEAR'] = 0
 
         for k in additional:
             d[k] = additional[k]
