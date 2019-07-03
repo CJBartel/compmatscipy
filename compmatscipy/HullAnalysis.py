@@ -480,7 +480,7 @@ class AnalyzeHull(object):
                    'Ed' : Ed,
                    'rxn' : decomp_rxn,
                    'stability' : stability}
-        return data        
+        return data[c]
         
 def main():
     d = read_json(os.path.join('/Users/chrisbartel/Dropbox/postdoc/projects/paper-db/data/MP/MP_query_gs.json'))
