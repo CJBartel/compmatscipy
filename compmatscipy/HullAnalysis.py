@@ -196,7 +196,8 @@ class GetHullInputData(object):
         if not fjson:
             fjson = 'hull_spaces.json'
         if not remake and os.path.exists(fjson):
-            return read_json(fjson)['hull_spaces']
+            d = read_json(fjson)
+            return d['hull_spaces']
         chemical_spaces_and_subspaces = self.chemical_spaces_and_subspaces
         chemical_subspaces = self.chemical_subspaces
         d = {'hull_spaces' : [s for s in chemical_spaces_and_subspaces if s not in chemical_subspaces if len(s) > 1]}
