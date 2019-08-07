@@ -5,6 +5,14 @@ from scipy.optimize import fmin_slsqp, minimize
 from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.handy_functions import read_json, write_json
 
+def _hullin_from_space(compound_to_energy, compounds, space):
+    for el in space:
+        compound_to_energy[el] = 0
+    relevant_compounds = [c for c in compounds if set(CompAnalyzer(c).els).issubset(set(space))] + list(space)
+    return {c : {'E' : compound_to_energy[c],
+                 'amts' : {el : CompAnalyzer(c).fractional_amt_of_el(el=el) for el in space}}
+                                            for c in relevant_compounds}
+
 class GetHullInputData(object):
     """
     Generates hull-relevant data
@@ -62,17 +70,23 @@ class GetHullInputData(object):
                                    if all_spaces[i] != all_spaces[j]]
         return list(set(subspaces))
     
-    @property
-    def hull_spaces(self):
+    def hull_spaces(self, fjson=False, remake=False, write=False):
         """
         Args:
             
         Returns:
             list of unique chemical spaces (set) that do define convex hull spaces
         """ 
+        if not fjson:
+            fjson = 'hull_spaces.json'
+        if not remake and os.path.exists(fjson):
+            return read_json(fjson)['hull_spaces']
         chemical_spaces_and_subspaces = self.chemical_spaces_and_subspaces
         chemical_subspaces = self.chemical_subspaces
-        return [s for s in chemical_spaces_and_subspaces if s not in chemical_subspaces if len(s) > 1]
+        d = {'hull_spaces' : [s for s in chemical_spaces_and_subspaces if s not in chemical_subspaces if len(s) > 1]}
+        if write:
+            d = write_json(d, fjson)
+        return d['hull_spaces']
     
     def hull_data(self, fjson=False, remake=False):
         """
@@ -91,7 +105,7 @@ class GetHullInputData(object):
             fjson = 'hull_input_data.json'
         if (remake == True) or not os.path.exists(fjson):
             hull_data = {}
-            hull_spaces = self.hull_spaces
+            hull_spaces = self.hull_spaces()
             compounds = self.compounds
             compound_to_energy = self.compound_to_energy
             for space in hull_spaces:
@@ -104,6 +118,23 @@ class GetHullInputData(object):
             return write_json(hull_data, fjson)
         else:
             return read_json(fjson)
+        
+    def parallel_hull_data(self, fjson=False, remake=False, Nprocs=4):
+        import multiprocessing as mp
+        if not fjson:
+            fjson = 'hull_input_data.json'
+        if (remake == True) or not os.path.exists(fjson):
+            hull_data = {}
+            hull_spaces = self.hull_spaces(write=True)
+            compounds = self.compounds
+            compound_to_energy = self.compound_to_energy
+            pool = mp.Pool(processes=Nprocs)
+            results = [r for r in pool.starmap(_hullin_from_space, [(compound_to_energy, compounds, space) for space in hull_spaces])]
+            keys = ['_'.join(list(space)) for space in hull_spaces]
+            hull_data = dict(zip(keys, results))
+            return write_json(hull_data, fjson)
+        else:
+            return read_json(fjson)        
         
 class AnalyzeHull(object):
     """
