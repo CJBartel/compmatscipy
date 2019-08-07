@@ -5,7 +5,9 @@ from scipy.optimize import fmin_slsqp, minimize
 from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.handy_functions import read_json, write_json
 
-def _hullin_from_space(compound_to_energy, compounds, space):
+def _hullin_from_space(compound_to_energy, compounds, space, verbose=False):
+    if verbose:
+        print(space)
     for el in space:
         compound_to_energy[el] = 0
     relevant_compounds = [c for c in compounds if set(CompAnalyzer(c).els).issubset(set(space))] + list(space)
@@ -14,7 +16,7 @@ def _hullin_from_space(compound_to_energy, compounds, space):
                                             for c in relevant_compounds}
     
 def parallel_hull_data(compound_to_energy, hull_spaces, 
-                       fjson=False, remake=False, Nprocs=4):
+                       fjson=False, remake=False, Nprocs=4, verbose=False):
     import multiprocessing as mp
     if not fjson:
         fjson = 'hull_input_data.json'
@@ -22,7 +24,7 @@ def parallel_hull_data(compound_to_energy, hull_spaces,
         hull_data = {}
         compounds = sorted(list(compound_to_energy.keys()))
         pool = mp.Pool(processes=Nprocs)
-        results = [r for r in pool.starmap(_hullin_from_space, [(compound_to_energy, compounds, space) for space in hull_spaces])]
+        results = [r for r in pool.starmap(_hullin_from_space, [(compound_to_energy, compounds, space, verbose) for space in hull_spaces])]
         keys = ['_'.join(list(space)) for space in hull_spaces]
         hull_data = dict(zip(keys, results))
         return write_json(hull_data, fjson)
