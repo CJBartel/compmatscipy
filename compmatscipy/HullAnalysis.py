@@ -12,6 +12,100 @@ def _hullin_from_space(compound_to_energy, compounds, space):
     return {c : {'E' : compound_to_energy[c],
                  'amts' : {el : CompAnalyzer(c).fractional_amt_of_el(el=el) for el in space}}
                                             for c in relevant_compounds}
+    
+def _smallest_space(hullin, formula):
+    """
+    Args:
+        hullin (dict) - {space (str, '_'.join(elements)) : 
+                            {formula (str) : 
+                                {'E' : formation energy (float, eV/atom),
+                                 'amts' : 
+                                     {element (str) : fractional amount of element in formula (float)}
+                                }
+                            }
+                        }
+        formula (str) - chemical formula
+    
+    Returns:
+        chemical space (str, '_'.join(elements), convex hull) that is easiest to compute
+    """
+    spaces = sorted(list(hullin.keys()))
+    relevant = [s for s in spaces if formula in hullin[s]]
+    sizes = [s.count('_') for s in relevant]
+    small = [relevant[i] for i in range(len(sizes)) if sizes[i] == np.min(sizes)]
+    sizes = [len(hullin[s]) for s in small]
+    smallest = [small[i] for i in range(len(small)) if sizes[i] == np.min(sizes)]
+    return smallest[0]
+
+
+
+def _compound_stability(smallest_spaces, hullin, formula):
+    """
+    Args:
+        smallest_spaces (dict) - {formula (str) : smallest chemical space having formula (str)}
+        hullin (dict) - hull input dictionary
+        formula (str) - chemical formula
+    
+    Returns:
+        {'Ef' : formation energy (float, eV/atom),
+         'Ed' : decomposition energy (float, eV/atom),
+         'rxn' : decomposition reaction (str),
+         'stability' : bool (True if on hull)}
+    """
+    space = smallest_spaces[formula]
+    obj = AnalyzeHull(hullin, space)
+    return obj.cmpd_hull_output_data(formula)
+
+def parallel_hullout(hullin, smallest_spaces,
+                     compounds='all', 
+                     fjson=False, remake=False, 
+                     Nprocs=4):
+    """
+    Args:
+        Nprocs (int) - processors to parallelize over
+        remake (bool) - run this (True) or read this (False)
+    
+    Returns:
+        {formula (str) :
+            {'Ef' : formation energy (float, eV/atom),
+             'Ed' : decomposition energy (float, eV/atom),
+             'rxn' : decomposition reaction (str),
+             'stability' : bool (True if on hull)}
+            }
+    """
+    import multiprocessing as mp
+    if not fjson:
+        fjson = 'hullout.json'
+    if not remake and os.path.exists(fjson):
+        return read_json(fjson)
+    pool = mp.Pool(prcesses=Nprocs)
+    if compounds == 'all':
+        compounds = sorted(list(smallest_spaces.keys()))
+    results = [r for r in pool.starmap(_compound_stability, [(smallest_spaces, hullin, compound) for compound in compounds])]
+    data = dict(zip(compounds, results))
+    return write_json(data, fjson)
+
+def smallest_spaces(self, hullin, compounds,
+                    fjson=False, remake=False, Nprocs=4):
+    """
+    Args:
+        Nprocs (int) - processors to parallelize over
+        remake (bool) - run this (True) or read this (False)
+    
+    Returns:
+        {formula (str) :
+            chemical space (str, '_'.join(elements), convex hull) 
+            that is easiest to compute}
+    """
+    import multiprocessing as mp
+    if not fjson:
+        fjson = 'smallest_spaces.json'
+    if not remake and os.path.exists(fjson):
+        return read_json(fjson)
+    pool = mp.Pool(processes=Nprocs)
+    smallest = [r for r in pool.starmap(_smallest_space, [(hullin, compound) for compound in compounds])]
+    data = dict(zip(compounds, smallest))
+    return write_json(data, fjson)
 
 class GetHullInputData(object):
     """
@@ -134,7 +228,7 @@ class GetHullInputData(object):
             hull_data = dict(zip(keys, results))
             return write_json(hull_data, fjson)
         else:
-            return read_json(fjson)        
+            return read_json(fjson)
         
 class AnalyzeHull(object):
     """
