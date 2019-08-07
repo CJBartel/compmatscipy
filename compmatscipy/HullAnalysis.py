@@ -13,7 +13,23 @@ def _hullin_from_space(compound_to_energy, compounds, space):
                  'amts' : {el : CompAnalyzer(c).fractional_amt_of_el(el=el) for el in space}}
                                             for c in relevant_compounds}
     
-def _smallest_space(hullin, formula):
+def parallel_hull_data(compound_to_energy, hull_spaces, 
+                       fjson=False, remake=False, Nprocs=4):
+    import multiprocessing as mp
+    if not fjson:
+        fjson = 'hull_input_data.json'
+    if (remake == True) or not os.path.exists(fjson):
+        hull_data = {}
+        compounds = sorted(list(compound_to_energy.keys()))
+        pool = mp.Pool(processes=Nprocs)
+        results = [r for r in pool.starmap(_hullin_from_space, [(compound_to_energy, compounds, space) for space in hull_spaces])]
+        keys = ['_'.join(list(space)) for space in hull_spaces]
+        hull_data = dict(zip(keys, results))
+        return write_json(hull_data, fjson)
+    else:
+        return read_json(fjson)
+    
+def _smallest_space(hullin, formula, verbose=False):
     """
     Args:
         hullin (dict) - {space (str, '_'.join(elements)) : 
@@ -29,6 +45,8 @@ def _smallest_space(hullin, formula):
     Returns:
         chemical space (str, '_'.join(elements), convex hull) that is easiest to compute
     """
+    if verbose:
+        print(formula)
     spaces = sorted(list(hullin.keys()))
     relevant = [s for s in spaces if formula in hullin[s]]
     sizes = [s.count('_') for s in relevant]
@@ -37,7 +55,7 @@ def _smallest_space(hullin, formula):
     smallest = [small[i] for i in range(len(small)) if sizes[i] == np.min(sizes)]
     return smallest[0]
 
-def _compound_stability(smallest_spaces, hullin, formula):
+def _compound_stability(smallest_spaces, hullin, formula, verbose=False):
     """
     Args:
         smallest_spaces (dict) - {formula (str) : smallest chemical space having formula (str)}
@@ -50,6 +68,8 @@ def _compound_stability(smallest_spaces, hullin, formula):
          'rxn' : decomposition reaction (str),
          'stability' : bool (True if on hull)}
     """
+    if verbose:
+        print(formula)
     space = smallest_spaces[formula]
     obj = AnalyzeHull(hullin, space)
     return obj.cmpd_hull_output_data(formula)
@@ -57,7 +77,8 @@ def _compound_stability(smallest_spaces, hullin, formula):
 def parallel_hullout(hullin, smallest_spaces,
                      compounds='all', 
                      fjson=False, remake=False, 
-                     Nprocs=4):
+                     Nprocs=4,
+                     verbose=False):
     """
     Args:
         Nprocs (int) - processors to parallelize over
@@ -79,12 +100,13 @@ def parallel_hullout(hullin, smallest_spaces,
     pool = mp.Pool(processes=Nprocs)
     if compounds == 'all':
         compounds = sorted(list(smallest_spaces.keys()))
-    results = [r for r in pool.starmap(_compound_stability, [(smallest_spaces, hullin, compound) for compound in compounds])]
+    results = [r for r in pool.starmap(_compound_stability, [(smallest_spaces, hullin, compound, verbose) for compound in compounds])]
     data = dict(zip(compounds, results))
     return write_json(data, fjson)
 
 def smallest_spaces(hullin, compounds,
-                    fjson=False, remake=False, Nprocs=4):
+                    fjson=False, remake=False, Nprocs=4,
+                    verbose=False):
     """
     Args:
         Nprocs (int) - processors to parallelize over
@@ -101,7 +123,7 @@ def smallest_spaces(hullin, compounds,
     if not remake and os.path.exists(fjson):
         return read_json(fjson)
     pool = mp.Pool(processes=Nprocs)
-    smallest = [r for r in pool.starmap(_smallest_space, [(hullin, compound) for compound in compounds])]
+    smallest = [r for r in pool.starmap(_smallest_space, [(hullin, compound, verbose) for compound in compounds])]
     data = dict(zip(compounds, smallest))
     return write_json(data, fjson)
 
@@ -207,23 +229,6 @@ class GetHullInputData(object):
                 hull_data['_'.join(list(space))] = {c : {'E' : compound_to_energy[c],
                                                          'amts' : {el : CompAnalyzer(c).fractional_amt_of_el(el=el) for el in space}}
                                                         for c in relevant_compounds}
-            return write_json(hull_data, fjson)
-        else:
-            return read_json(fjson)
-        
-    def parallel_hull_data(self, fjson=False, remake=False, Nprocs=4):
-        import multiprocessing as mp
-        if not fjson:
-            fjson = 'hull_input_data.json'
-        if (remake == True) or not os.path.exists(fjson):
-            hull_data = {}
-            hull_spaces = self.hull_spaces(write=True)
-            compounds = self.compounds
-            compound_to_energy = self.compound_to_energy
-            pool = mp.Pool(processes=Nprocs)
-            results = [r for r in pool.starmap(_hullin_from_space, [(compound_to_energy, compounds, space) for space in hull_spaces])]
-            keys = ['_'.join(list(space)) for space in hull_spaces]
-            hull_data = dict(zip(keys, results))
             return write_json(hull_data, fjson)
         else:
             return read_json(fjson)
