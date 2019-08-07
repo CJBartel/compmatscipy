@@ -460,7 +460,7 @@ class VASPSetUp(object):
         """
         return nsites(self.els_to_amts)                      
                 
-    def potcar(self, els_in_poscar=False, specific_pots=False, machine='peregrine', src='potpaw', MP=False):
+    def potcar(self, els_in_poscar=False, specific_pots=False, machine='eagle', src='gga_54', MP=False):
         """
         Args:
             els_in_poscar (list or False) - ordered list of elements (str) in POSCAR; if FALSE, read POSCAR
@@ -474,25 +474,34 @@ class VASPSetUp(object):
         if not els_in_poscar:
             els_in_poscar = self.ordered_els_from_poscar()
         fpotcar = os.path.join(self.calc_dir, 'POTCAR')
-        if machine == 'peregrine':
-            path_to_pots = '/projects/thermochem/rs_perovs/potpaw_PBE.54'
-        elif machine == 'ginar':
-            path_to_pots = '/home/cbartel/apps/pp/potpaw_PBE.54/'
-        elif machine == 'stampede2':
-            path_to_pots = '/home1/06479/tg857781/bin/VASP_PSP/POT_GGA_PAW_PBE_52'
-        if src != 'potpaw':
-            print('havent configured this yet')
-            return
+        if machine == 'eagle':
+            path_to_pots = '/home/cbartel/bin/pp'
+        if src == 'gga_54':
+            pot_dir = 'POT_GGA_PAW_PBE_54'
+        elif src == 'gga_52':
+            pot_dir = 'POT_GGA_PAW_PBE_52'
+        elif src == 'gga':
+            pot_dir = 'POT_GGA_PAW_PBE'
         if MP:
             from compmatscipy.data.MP_pseudos import MP_pseudos_data
             specific_pots = MP_pseudos_data()
-            path_to_pots = '/projects/thermochem/cbartel/pp/share/apps/repos/pyabinitio/resources/VASP_PSP/POT_GGA_PAW_PBE'
+            pot_dir = 'POT_GGA_PAW_PBE'
+            if src != 'gga':
+                print('using GGA pots bc MP = TRUE')
+        pots = os.path.join(path_to_pots, pot_dir)
+#        if machine == 'ginar':
+#            path_to_pots = '/home/cbartel/apps/pp/potpaw_PBE.54/'
+#        elif machine == 'stampede2':
+#            path_to_pots = '/home1/06479/tg857781/bin/VASP_PSP/POT_GGA_PAW_PBE_52'
+#        if src != 'potpaw':
+#            print('havent configured this yet')
+#            return
         with open(fpotcar, 'w') as f:
             for el in els_in_poscar:
                 if (specific_pots == False) or (el not in specific_pots):
-                    pot_to_add = os.path.join(path_to_pots, el, 'POTCAR')
+                    pot_to_add = os.path.join(pots, el, 'POTCAR')
                 else:
-                    pot_to_add = os.path.join(path_to_pots, specific_pots[el], 'POTCAR')
+                    pot_to_add = os.path.join(pots, specific_pots[el], 'POTCAR')
                 with open(pot_to_add) as g:
                     for line in g:
                         f.write(line)
@@ -575,6 +584,27 @@ class VASPSetUp(object):
                 f.write('%s /home1/06479/tg857781/apps/vasp/VASP_KNL_SKX/%s > %s\n' % (mpi, vasp, out_file))
            # module load intel/18.0.0
            # module load impi/18.0.0
+            if command:
+                f.write('\n%s\n' % command)
+
+    def sub_eagle(self, sub_file='sub.sh', queue='standard', job_name=False, nodes=1, walltime=48, out_file='job.o', err_file='job.e', allocation='ngmd', vasp='vasp_std', mpi='srun', command=False):
+        fsub = os.path.join(self.calc_dir, sub_file)
+        tasks_per_node = 18
+        total_tasks = int(nodes*tasks_per_node)
+        if not job_name:
+            job_name = os.path.split(os.getcwd())[-1]
+        with open(fsub, 'w') as f:
+            f.write('#!/bin/bash\n')
+            f.write('#SBATCH -p %s\n' % queue)
+            f.write('#SBATCH -J %s\n' % job_name)
+            f.write('#SBATCH -e %s\n' % err_file)
+            f.write('#SBATCH -N %s\n' % str(nodes))
+            f.write('#SBATCH -n %s\n' % str(total_tasks))
+            f.write('#SBATCH -t %s:00:00\n' % str(walltime))
+            f.write('#SBATCH -A %s\n' % allocation)
+            f.write('#SBATCH -o %s\n' % '_'.join(['log', job_name]))
+            if not command:
+                f.write('\n%s -n %s /home/cbartel/bin/vasp_binaries/%s > %s\n' % (mpi, str(total_tasks), vasp, out_file))
             if command:
                 f.write('\n%s\n' % command)
 
