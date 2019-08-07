@@ -598,11 +598,10 @@ class VASPSetUp(object):
             f.write('#SBATCH -p %s\n' % queue)
             f.write('#SBATCH -J %s\n' % job_name)
             f.write('#SBATCH -e %s\n' % err_file)
-            f.write('#SBATCH -N %s\n' % str(nodes))
             f.write('#SBATCH -n %s\n' % str(total_tasks))
             f.write('#SBATCH -t %s:00:00\n' % str(walltime))
             f.write('#SBATCH -A %s\n' % allocation)
-            f.write('#SBATCH -o %s\n' % '_'.join(['log', job_name]))
+            f.write('#SBATCH --ouptut=%s\n' % '_'.join(['log', job_name]))
             if not command:
                 f.write('\n%s -n %s /home/cbartel/bin/vasp_binaries/%s > %s\n' % (mpi, str(total_tasks), vasp, out_file))
             if command:
