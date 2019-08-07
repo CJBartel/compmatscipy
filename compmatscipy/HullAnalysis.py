@@ -85,7 +85,7 @@ def parallel_hullout(hullin, smallest_spaces,
     data = dict(zip(compounds, results))
     return write_json(data, fjson)
 
-def smallest_spaces(self, hullin, compounds,
+def smallest_spaces(hullin, compounds,
                     fjson=False, remake=False, Nprocs=4):
     """
     Args:
