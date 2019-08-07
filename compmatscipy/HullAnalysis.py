@@ -37,8 +37,6 @@ def _smallest_space(hullin, formula):
     smallest = [small[i] for i in range(len(small)) if sizes[i] == np.min(sizes)]
     return smallest[0]
 
-
-
 def _compound_stability(smallest_spaces, hullin, formula):
     """
     Args:
@@ -78,7 +76,7 @@ def parallel_hullout(hullin, smallest_spaces,
         fjson = 'hullout.json'
     if not remake and os.path.exists(fjson):
         return read_json(fjson)
-    pool = mp.Pool(prcesses=Nprocs)
+    pool = mp.Pool(processes=Nprocs)
     if compounds == 'all':
         compounds = sorted(list(smallest_spaces.keys()))
     results = [r for r in pool.starmap(_compound_stability, [(smallest_spaces, hullin, compound) for compound in compounds])]
