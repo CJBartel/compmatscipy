@@ -581,7 +581,7 @@ class VASPSetUp(object):
             f.write('#SBATCH -A %s\n' % allocation)
         
             if not command:
-                f.write('%s /home1/06479/tg857781/apps/vasp/VASP_KNL_SKX/%s > %s\n' % (mpi, vasp, out_file))
+                f.write('%s /home1/06479/tg857781/apps/vasp/VASP_KyuJung/%s > %s\n' % (mpi, vasp, out_file))
            # module load intel/18.0.0
            # module load impi/18.0.0
             if command:
