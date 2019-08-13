@@ -24,7 +24,9 @@ def parallel_hull_data(compound_to_energy, hull_spaces,
         hull_data = {}
         compounds = sorted(list(compound_to_energy.keys()))
         pool = mp.Pool(processes=Nprocs)
-        results = [r for r in pool.starmap(_hullin_from_space, [(compound_to_energy, compounds, space, verbose) for space in hull_spaces])]
+        argss = [(compound_to_energy, compounds, space, verbose) for space in hull_spaces]
+        results = pool.map(_hullin_from_space, argss)
+#        results = [r for r in pool.starmap(_hullin_from_space, [(compound_to_energy, compounds, space, verbose) for space in hull_spaces])]
         keys = ['_'.join(list(space)) for space in hull_spaces]
         hull_data = dict(zip(keys, results))
         return write_json(hull_data, fjson)
@@ -125,7 +127,9 @@ def smallest_spaces(hullin, compounds,
     if not remake and os.path.exists(fjson):
         return read_json(fjson)
     pool = mp.Pool(processes=Nprocs)
-    smallest = [r for r in pool.starmap(_smallest_space, [(hullin, compound, verbose) for compound in compounds])]
+    argss = [(hullin, compound, verbose) for compound in compounds]
+    smallest = pool.map(_smallest_space, argss)
+#    smallest = [r for r in pool.starmap(_smallest_space, [(hullin, compound, verbose) for compound in compounds])]
     data = dict(zip(compounds, smallest))
     return write_json(data, fjson)
 
