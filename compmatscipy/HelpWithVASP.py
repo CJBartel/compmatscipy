@@ -476,6 +476,8 @@ class VASPSetUp(object):
         fpotcar = os.path.join(self.calc_dir, 'POTCAR')
         if machine == 'eagle':
             path_to_pots = '/home/cbartel/bin/pp'
+        elif machine == 'stampede2':
+            path_to_pots = '/home1/06479/tg857781/bin/pp'
         if src == 'gga_54':
             pot_dir = 'POT_GGA_PAW_PBE_54'
         elif src == 'gga_52':
@@ -581,7 +583,7 @@ class VASPSetUp(object):
             f.write('#SBATCH -A %s\n' % allocation)
         
             if not command:
-                f.write('%s /home1/06479/tg857781/apps/vasp/VASP_KyuJung/%s > %s\n' % (mpi, vasp, out_file))
+                f.write('%s /home1/06479/tg857781/bin/vasp/VASP_KyuJung/%s > %s\n' % (mpi, vasp, out_file))
            # module load intel/18.0.0
            # module load impi/18.0.0
             if command:
