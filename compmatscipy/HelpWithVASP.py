@@ -556,7 +556,7 @@ class VASPSetUp(object):
             
     def sub_ginar(self, sub_file='sub.sh', out_file='job.o', nprocs=16, 
                   mpi_command='/share/apps/intel/impi/5.0.3.048/intel64/bin/mpiexec.hydra',
-                  vasp='pvasp.5.4.1.intel'):
+                  vasp='pvasp.5.4.4.intel'):
         fsub = os.path.join(self.calc_dir, sub_file)
         with open(fsub, 'w') as f:
             f.write('#! /bin/bash\n')
