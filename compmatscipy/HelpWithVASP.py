@@ -478,6 +478,8 @@ class VASPSetUp(object):
             path_to_pots = '/home/cbartel/bin/pp'
         elif machine == 'stampede2':
             path_to_pots = '/home1/06479/tg857781/bin/pp'
+        elif machine == 'cori':
+            path_to_pots = '/global/homes/c/cbartel/bin/pp'
         if src == 'gga_54':
             pot_dir = 'POT_GGA_PAW_PBE_54'
         elif src == 'gga_52':
@@ -588,7 +590,7 @@ class VASPSetUp(object):
            # module load impi/18.0.0
             if command:
                 f.write('\n%s\n' % command)
-
+                
     def sub_eagle(self, sub_file='sub.sh', queue='standard', job_name=False, nodes=1, walltime=48, out_file='job.o', err_file='job.e', allocation='ngmd', vasp='vasp_std', mpi='srun', command=False):
         fsub = os.path.join(self.calc_dir, sub_file)
         tasks_per_node = 18
@@ -609,6 +611,40 @@ class VASPSetUp(object):
             if command:
                 f.write('\n%s\n' % command)
 
+    def sub_cori(self, sub_file='sub.sh', queue='regular', job_name=False, nodes=1, walltime=48, out_file='job.o', err_file='job.e', allocation='m1268', vasp='vasp_std', mpi='srun', command=False, partition='hsw'):
+        fsub = os.path.join(self.calc_dir, sub_file)
+        if partition == 'hsw':
+            tasks_per_node = 32
+            constraint = 'haswell'
+        elif partition == 'knl':
+            tasks_per_node = 64
+            constraint = 'knl,cache,quad'
+        total_tasks = int(nodes*tasks_per_node)
+        if not job_name:
+            job_name = os.path.split(os.getcwd())[-1]
+        with open(fsub, 'w') as f:
+            f.write('#!/bin/bash\n')
+            f.write('#SBATCH --qos=%s\n' % queue)
+            f.write('#SBATCH --job-name=%s\n' % job_name)
+            f.write('#SBATCH --time=%s\n' % str(walltime))
+            f.write('#SBATCH --tasks-per-node=%s\n' % str(tasks_per_node))
+            f.write('#SBATCH --constraint=%s\n' % constraint)
+            f.write('#SBATCH --account=%s\n' % allocation)
+            f.write('#SBATCH --error=%s\n' % err_file)
+            f.write('#SBATCH --output=%s\n'% out_file)
+            f.write('\ncd $SLURM_SUBMIT_DIR\n')
+            if not command:
+                if partition == 'hsw':
+                    f.write('\nsrun -n %s /global/homes/c/cbartel/bin/vasp_bins/hsw/%s_%s > %s\n' % (str(total_tasks), vasp, partition, 'vasp.out'))
+                elif partition == 'knl':
+                    f.write('\nexport OMP_PROC_BIND=true\n')
+                    f.write('export OMP_PLACES=threads\n')
+                    f.write('export OMP_NUM_THREADS=4\n')
+                    f.write('\nsrun -n %s -c 4 --cpu_bind=cores /global/homes/c/cbartel/bin/vasp_bins/knl/%s_%s > %s\n' % (str(total_tasks), vasp, partition, 'vasp.out'))
+                    
+            if command:
+                f.write('\n%s\n' % command)
+                    
 class DiffusionSetUp(object):
     """
     Set up NEB calculations of diffusion migration barriers
