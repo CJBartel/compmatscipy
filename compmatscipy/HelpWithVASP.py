@@ -644,7 +644,310 @@ class VASPSetUp(object):
                     
             if command:
                 f.write('\n%s\n' % command)
-                    
+
+
+class JobSubmission(object):
+    
+    def __init__(self, launch_dir, machine,
+                 sub_file='sub.sh',
+                 err_file='log.e',
+                 out_file='log.o',
+                 job_name='cb_job',
+                 nodes=1,
+                 walltime='24:00:00',
+                 account=None,
+                 partition=None,
+                 priority=None,
+                 mem=None,
+                 vasp='vasp_std',
+                 xcs=['pbe', 'scan'],
+                 command=False,
+                 status_file='status.o'):
+        self.launch_dir = launch_dir
+        self.machine = machine
+        self.sub_file = sub_file
+        self.err_file = err_file
+        self.out_file = out_file
+        self.job_name = job_name
+        self.nodes = nodes
+        self.walltime = walltime
+        self.account = account
+        self.partition = partition
+        self.priority = priority
+        self.mem = mem
+        self.vasp = vasp
+        self.xcs = xcs
+        self.command = command
+        self.status_file = status_file
+        """
+        In launch dir, generate POSCAR, KPOINTS, INCAR, POTCAR for pbe calculation
+
+
+        eagle
+        -partitions
+        ---standard (48 hr)
+        ---debug (1 node, 24 hr)
+        ---short (4 hr)
+        ---long (240 hr)
+        ---bigmem (mem=200000)
+        -vasps
+        ---vasp_std, ...
+        
+        stampede2
+        -partitions
+        ---development (knl, 2 hr, 1 job)
+        ---normal (knl, 48 hr, 50 jobs)
+        ---large (knl, 48 hr, 5 jobs)
+        ---long (knl, 120 hr, 2 jobs)
+        ---skx-dev (skx, 2 hr, 1 job)
+        ---skx-normal (skx, 48 hr, 25 jobs)
+        ---skx-large (skx, 48 hr, 3 jobs)
+        -vasps
+        ---
+        ---
+
+        cori
+        -partitions
+        ---regular (haswell/knl, 48 hr)
+        ---debug (haswell/knl, 30 min, 2 jobs)
+        -vasps
+        ---??
+        ---??
+        """
+
+    @property
+    def manager(self):
+        machine = self.machine
+        if machine in ['eagle', 'cori', 'stampede2']:
+            return '#SBATCH'
+        else:
+            raise ValueError
+
+    @property
+    def options(self):
+        account, machine = self.account, self.machine
+        if not account:
+            if machine == 'eagle':
+                account = 'ngmd'
+            elif machine == 'cori':
+                account = 'm1268'
+            elif machine == 'stampede2':
+                account = 'TG-DMR970008S'
+            else:
+                raise ValueError
+        partition = self.partition
+        if machine == 'cori':
+            qos = partition
+            partition = None
+            if qos == 'hsw':
+                tasks_per_node = 32
+                constraint = 'haswell'
+            elif qos == 'knl':
+                tasks_per_node = 64
+                constraint = 'knl,cache,quad'
+        else:
+            qos, constraint = None, None
+        if machine == 'eagle':
+            tasks_per_node = 36
+        elif machine == 'stampede2':
+            if 'skx' in partition:
+                tasks_per_node = 48
+            else:
+                tasks_per_node = 64
+        priority = self.priority
+        if priority == 'low':
+            qos = 'low'
+        if machine in ['cori', 'eagle']:
+            mpi_command = 'srun'
+        elif machine == 'stampede2':
+            mpi_command = 'ibrun'
+        job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
+        slurm_options = {'account' : account,
+                         'constraint' : constraint,
+                         'error' : err_file,
+                         'job-name' : job_name,
+                         'mem' : mem,
+                         'ntasks' : int(nodes*tasks_per_node),
+                         'output' : out_file,
+                         'partition' : partition,
+                         'qos' : qos,
+                         'time' : walltime}
+        return slurm_options
+
+    @property
+    def vasp_dir(self):
+        machine = self.machine
+        if machine == 'stampede2':
+            home_dir = '/home1/o6479/tg857781'
+        elif machine == 'eagle':
+            home_dir = '/home/cbartel'
+        elif machine == 'cori':
+            home_dir = '/global/homes/c/cbartel'
+        else:
+            raise ValueError
+        vasp_dir = os.path.join(home_dir, 'bin', 'vasp')
+        return vasp_dir
+
+    @property
+    def mpi_command(self):
+        machine = self.machine
+        if machine == 'stampede2':
+            return 'ibrun'
+        elif machine in ['cori', 'eagle']:
+            return 'srun'
+        else:
+            raise ValueError
+
+    @property
+    def vasp_command_modifier(self):
+        machine, partition = self.machine, self.partition
+        if (machine == 'cori') and (partition == 'knl'):
+            return '-c 4 --cpu_bind=cores'
+        else:
+            return ''
+    
+    @property
+    def vasp_modifier_lines(self):
+        machine, partition = self.machine, self.partition
+        if (machine == 'cori') and (partition == 'knl'):
+            return ['\nexport OMP_PROC_BIND=true\n',
+                    'export OMP_PLACES=threads\n',
+                    'export OMP_NUM_THREADS=4\n']
+        else:
+            return ['\n']
+
+    @property
+    def vasp_command(self):
+        modifier = self.vasp_command_modifier
+        mpi_command = self.mpi_command
+        vasp_dir = self.vasp_dir
+        vasp = self.vasp
+        vasp = os.path.join(vasp_dir, vasp)
+        options = self.options
+        ntasks = options['ntasks']
+        return '\n%s -n %s %s %s > vasp.out\n' % (mpi_command, str(ntasks), modifier, vasp)
+
+    @property
+    def calc_dirs(self):
+        launch_dir = self.launch_dir
+        xcs = self.xcs
+        info = {xc : {calc : {'dir' :os.path.join(launch_dir, xc, calc)} for calc in ['sp', 'opt']} for xc in xcs}
+        for xc in xcs:
+            xc_dir = os.path.join(launch_dir, xc)
+            if not os.path.exists(xc_dir):
+                os.mkdir(xc_dir)
+            for calc in ['sp', 'opt']:
+                calc_dir = os.path.join(xc_dir, calc)
+                if not os.path.exists(calc_dir):
+                    os.mkdir(calc_dir)
+                outcar = os.path.join(calc_dir, 'OUTCAR')
+                if not os.path.exists(outcar):
+                    convergence = False
+                else:
+                    convergence = VASPBasicAnalysis(calc_dir).is_converged
+                info[xc][calc]['convergence'] = convergence
+        for xc in xcs:
+            for calc in ['sp', 'opt']:
+                if calc == 'opt':
+                    if xc == 'pbe':
+                        ready = True
+                    elif xc == 'scan':
+                        ready = info['pbe'][calc]['convergence']
+                    else:
+                        raise ValueError
+                elif calc == 'sp':
+                    ready = info[xc]['opt']['convergence']
+                else:
+                    raise ValueError
+                info[xc][calc]['ready'] = ready
+        return info
+
+    def copy_files(self, xc, calc, overwrite=False):
+        calc_dirs = self.calc_dirs
+        base_files = ['KPOINTS', 'INCAR', 'POTCAR', 'POSCAR']
+        continue_files = ['WAVECAR', 'CONTCAR']
+        if calc == 'sp':
+            src_dir = calc_dirs[xc]['opt']['dir']
+            files = continue_files + base_files
+        elif xc == 'pbe':
+            src_dir = self.launch_dir
+            files = base_files
+        elif xc == 'scan':
+            src_dir = calc_dirs['pbe'][calc]['dir']
+            files = continue_files + base_files
+        dst_dir = calc_dirs[xc][calc]['dir']
+        for f in files:
+            src = os.path.join(src_dir, f)
+            dst = os.path.join(dst_dir, f)
+            if os.path.exists(src):
+                if not os.path.exists(dst) or overwrite:
+                    copyfile(src, dst)
+
+    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}):
+        fstatus = self.status_file
+        machine = self.machine
+        sub_file = self.sub_file
+        fsub = os.path.join(self.launch_dir, sub_file)
+        allowed_machines = ['stampede2', 'eagle', 'cori']
+        if machine not in allowed_machines:
+            raise ValueError
+        line1 = '#!/bin/bash\n'
+        options = self.options
+        manager = self.manager
+        vasp_command = self.vasp_command
+        vasp = self.vasp
+        xcs = self.xcs
+        with open(fsub, 'w') as f:
+            f.write(line1)
+            for tag in options:
+                option = options[tag]
+                if option:
+                    option = str(option)
+                    f.write('%s --%s=%s\n' % (manager, tag, option))
+            if not vasp:
+                if not command:
+                    raise ValueError
+                f.write('\n%s\n' % command)
+                return
+            if (machine == 'cori') and (constraint == 'knl'):
+                lines_to_add = self.vasp_modifier_lines
+                for l in lines_to_add:
+                    f.write(l)
+                mod_vasp = self.vasp_command_modifier
+            f.write('\n')
+            calc_dirs = self.calc_dirs
+            for xc in xcs:
+                for calc in ['opt', 'sp']:
+                    convergence = calc_dirs[xc][calc]['convergence']
+                    calc_dir = calc_dirs[xc][calc]['dir']
+                    obj = VASPSetUp(calc_dir)
+                    if not convergence:
+                        self.copy_files(xc, calc, overwrite=fresh_restart)
+                        if (xc == 'pbe') and (calc == 'opt'):
+                            obj.modify_incar(enforce=opt_params)
+                        elif (xc == 'scan') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'METAGGA' : 'SCAN',
+                                                      'ALGO' : 'All',
+                                                      'ADDGRID' : 'TRUE',
+                                                      'ISMEAR' : 0,
+                                                      **opt_params})
+                        elif calc == 'sp':
+                            obj = VASPSetUp(calc_dir)
+                            obj.modify_incar(enforce={'IBRION' : -1,
+                                                      'NSW' : 0,
+                                                      'NELM' : 1000,
+                                                      **sp_params})
+                        if calc == 'sp':
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs[xc]['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
+                        if xc == 'scan':
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
+                        f.write('\ncd %s' % calc_dir)
+                        f.write(vasp_command)
+                        f.write('cd %s\n' % self.launch_dir)
+                        f.write('echo launched %s-%s >> %s\n' % (xc, calc, fstatus))
+                    else:
+                        f.write('echo %s-%s converged >> %s\n' % (xc, calc, fstatus))
+
 class DiffusionSetUp(object):
     """
     Set up NEB calculations of diffusion migration barriers
