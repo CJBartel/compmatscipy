@@ -737,14 +737,12 @@ class JobSubmission(object):
                 raise ValueError
         partition = self.partition
         if machine == 'cori':
-            qos = partition
+            qos, constraint = partition.split('-')
             partition = None
-            if qos == 'hsw':
+            if constraint == 'haswell':
                 tasks_per_node = 32
-                constraint = 'haswell'
-            elif qos == 'knl':
+            elif constraint == 'knl':
                 tasks_per_node = 64
-                constraint = 'knl,cache,quad'
         else:
             qos, constraint = None, None
         if machine == 'eagle':
@@ -769,7 +767,7 @@ class JobSubmission(object):
                          'error' : err_file,
                          'job-name' : job_name,
                          'mem' : mem,
-                         'ntasks' : int(nodes*tasks_per_node),
+                         'ntasks' : ntasks,
                          'output' : out_file,
                          'partition' : partition,
                          'qos' : qos,
@@ -912,7 +910,7 @@ class JobSubmission(object):
                     raise ValueError
                 f.write('\n%s\n' % command)
                 return
-            if (machine == 'cori') and (constraint == 'knl'):
+            if (machine == 'cori') and ('knl' in self.partition):
                 lines_to_add = self.vasp_modifier_lines
                 for l in lines_to_add:
                     f.write(l)
