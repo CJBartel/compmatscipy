@@ -762,6 +762,8 @@ class JobSubmission(object):
         elif machine == 'stampede2':
             mpi_command = 'ibrun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
+        ntasks = int(nodes*tasks_per_node)
+        nodes = None if machine != 'stampede2' else nodes
         slurm_options = {'account' : account,
                          'constraint' : constraint,
                          'error' : err_file,
@@ -771,14 +773,15 @@ class JobSubmission(object):
                          'output' : out_file,
                          'partition' : partition,
                          'qos' : qos,
-                         'time' : walltime}
+                         'time' : walltime,
+                         'nodes' : nodes}
         return slurm_options
 
     @property
     def vasp_dir(self):
         machine = self.machine
         if machine == 'stampede2':
-            home_dir = '/home1/o6479/tg857781'
+            home_dir = '/home1/06479/tg857781'
         elif machine == 'eagle':
             home_dir = '/home/cbartel'
         elif machine == 'cori':
