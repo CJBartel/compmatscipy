@@ -661,8 +661,10 @@ class JobSubmission(object):
                  mem=None,
                  vasp='vasp_std',
                  xcs=['pbe', 'scan'],
+                 calcs=['opt', 'sp'],
                  command=False,
-                 status_file='status.o'):
+                 status_file='status.o',
+                 postprocess={}):
         self.launch_dir = launch_dir
         self.machine = machine
         self.sub_file = sub_file
@@ -679,6 +681,8 @@ class JobSubmission(object):
         self.xcs = xcs
         self.command = command
         self.status_file = status_file
+        self.calcs = calcs
+        self.postprocess = postprocess
         """
         In launch dir, generate POSCAR, KPOINTS, INCAR, POTCAR for pbe calculation
 
@@ -829,15 +833,20 @@ class JobSubmission(object):
         return '\n%s -n %s %s %s > vasp.out\n' % (mpi_command, str(ntasks), modifier, vasp)
 
     @property
+    def bader_command(self):
+        return '\n/home/cbartel/bin/vtst/vtstscripts-940/chgsum.pl AECCAR0 AECCAR2\n/home/cbartel/bin/bader CHGCAR -ref CHGCAR_sum\n'
+
+    @property
     def calc_dirs(self):
+        calcs = self.calcs
         launch_dir = self.launch_dir
         xcs = self.xcs
-        info = {xc : {calc : {'dir' :os.path.join(launch_dir, xc, calc)} for calc in ['sp', 'opt']} for xc in xcs}
+        info = {xc : {calc : {'dir' :os.path.join(launch_dir, xc, calc)} for calc in calcs} for xc in xcs}
         for xc in xcs:
             xc_dir = os.path.join(launch_dir, xc)
             if not os.path.exists(xc_dir):
                 os.mkdir(xc_dir)
-            for calc in ['sp', 'opt']:
+            for calc in calcs:
                 calc_dir = os.path.join(xc_dir, calc)
                 if not os.path.exists(calc_dir):
                     os.mkdir(calc_dir)
@@ -848,7 +857,7 @@ class JobSubmission(object):
                     convergence = VASPBasicAnalysis(calc_dir).is_converged
                 info[xc][calc]['convergence'] = convergence
         for xc in xcs:
-            for calc in ['sp', 'opt']:
+            for calc in calcs:
                 if calc == 'opt':
                     if xc == 'pbe':
                         ready = True
@@ -858,6 +867,8 @@ class JobSubmission(object):
                         raise ValueError
                 elif calc == 'sp':
                     ready = info[xc]['opt']['convergence']
+                elif calc == 'resp':
+                    ready = info[xc]['sp']['convergence']
                 else:
                     raise ValueError
                 info[xc][calc]['ready'] = ready
@@ -869,6 +880,9 @@ class JobSubmission(object):
         continue_files = ['WAVECAR', 'CONTCAR']
         if calc == 'sp':
             src_dir = calc_dirs[xc]['opt']['dir']
+            files = continue_files + base_files
+        elif calc == 'resp':
+            src_dir = calc_dirs[xc]['sp']['dir']
             files = continue_files + base_files
         elif xc == 'pbe':
             src_dir = self.launch_dir
@@ -884,7 +898,7 @@ class JobSubmission(object):
                 if not os.path.exists(dst) or overwrite:
                     copyfile(src, dst)
 
-    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}):
+    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}):
         fstatus = self.status_file
         machine = self.machine
         sub_file = self.sub_file
@@ -898,6 +912,10 @@ class JobSubmission(object):
         vasp_command = self.vasp_command
         vasp = self.vasp
         xcs = self.xcs
+        calcs = self.calcs
+        postprocess = self.postprocess
+        postprocess = {calc : [] if calc not in postprocess else postprocess[calc] for calc in calcs}
+        bader_command = self.bader_command
         with open(fsub, 'w') as f:
             f.write(line1)
             for tag in options:
@@ -918,7 +936,7 @@ class JobSubmission(object):
             f.write('\n')
             calc_dirs = self.calc_dirs
             for xc in xcs:
-                for calc in ['opt', 'sp']:
+                for calc in calcs:
                     convergence = calc_dirs[xc][calc]['convergence']
                     calc_dir = calc_dirs[xc][calc]['dir']
                     obj = VASPSetUp(calc_dir)
@@ -938,16 +956,30 @@ class JobSubmission(object):
                                                       'NSW' : 0,
                                                       'NELM' : 1000,
                                                       **sp_params})
-                        if calc == 'sp':
+                        elif calc == 'resp':
+                            obj = VASPSetUp(calc_dir)
+                            obj.modify_incar(enforce={'IBRION' : -1,
+                                                      'NSW' : 0,
+                                                      'NELM' : 1000,
+                                                      **resp_params})
+                        if calc in ['sp', 'resp']:
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs[xc]['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
-                        if xc == 'scan':
+                        elif xc == 'scan':
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
                         f.write('\ncd %s' % calc_dir)
                         f.write(vasp_command)
+                        if 'bader' in postprocess[calc]:
+                            f.write(bader_command)
                         f.write('cd %s\n' % self.launch_dir)
                         f.write('echo launched %s-%s >> %s\n' % (xc, calc, fstatus))
                     else:
                         f.write('echo %s-%s converged >> %s\n' % (xc, calc, fstatus))
+                        if postprocess[calc]:
+                            f.write('\ncd %s' % calc_dir)
+                            if 'bader' in postprocess[calc]:
+                                if not os.path.exists(os.path.join(calc_dir, 'ACF.dat')):
+                                    f.write(bader_command)
+                            f.write('cd %s\n' % self.launch_dir)
 
 class DiffusionSetUp(object):
     """
