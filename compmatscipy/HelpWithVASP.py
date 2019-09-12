@@ -898,7 +898,7 @@ class JobSubmission(object):
                 if not os.path.exists(dst) or overwrite:
                     copyfile(src, dst)
 
-    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}):
+    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}, copy_contcar=True):
         fstatus = self.status_file
         machine = self.machine
         sub_file = self.sub_file
@@ -944,12 +944,14 @@ class JobSubmission(object):
                         self.copy_files(xc, calc, overwrite=fresh_restart)
                         if (xc == 'pbe') and (calc == 'opt'):
                             obj.modify_incar(enforce=opt_params)
+                            obj.poscar(copy_contcar)
                         elif (xc == 'scan') and (calc == 'opt'):
                             obj.modify_incar(enforce={'METAGGA' : 'SCAN',
                                                       'ALGO' : 'All',
                                                       'ADDGRID' : 'TRUE',
                                                       'ISMEAR' : 0,
                                                       **opt_params})
+                            obj.poscar(copy_contcar)
                         elif calc == 'sp':
                             obj = VASPSetUp(calc_dir)
                             obj.modify_incar(enforce={'IBRION' : -1,
@@ -970,6 +972,7 @@ class JobSubmission(object):
                         f.write(vasp_command)
                         if 'bader' in postprocess[calc]:
                             f.write(bader_command)
+   
                         f.write('cd %s\n' % self.launch_dir)
                         f.write('echo launched %s-%s >> %s\n' % (xc, calc, fstatus))
                     else:
