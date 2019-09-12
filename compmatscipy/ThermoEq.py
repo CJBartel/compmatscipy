@@ -122,17 +122,21 @@ class ThermoEq(object):
                         if imode != 0:
                             print('\n\n\n\n\nAHHHHHHHHHHH!!!!!\n\n\n\n\n\n')
                             return [np.nan for i in sorted_formulas]
-        return out
+        return out, fx
     
     @property
     def results(self):
         T = self.temp
         sorted_formulas = self._sorted_formulas
-        N = self.solution
+        N, fx = self.solution
         r = {}
         for s, n in zip(list(sorted_formulas), N):
             r[s] = n/np.sum(N)
         return r
+    
+    @property
+    def minimized_G(self):
+        return self.solution[1]
     
 def main():
     data = {'Al2O3' : {'phase' : 'solid',
