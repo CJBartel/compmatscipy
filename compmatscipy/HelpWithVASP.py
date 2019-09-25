@@ -509,142 +509,69 @@ class VASPSetUp(object):
                 with open(pot_to_add) as g:
                     for line in g:
                         f.write(line)
-    
-    def sub_peregrine(self, log_name, nodes, ppn, queue, walltime, allocation, 
-                  priority='low', feature=False, 
-                  username='cbartel', bash='.bashrc', 
-                  mpi_command='/nopt/intel/psxe2017u2/compilers_and_libraries_2017.5.239/linux/mpi/intel64/bin/mpiexec', 
-                  vasp='/projects/thermochem/apps/vasp.5.4.4/impi_centos/bin/vasp_std',
-                  out_file='vasp.out', sub_file='sub.sh'):
-        """
-        Args:
-            log_name (str) - log name for calculation
-            nodes (int)- number of nodes
-            ppn (int) - cores per node
-            queue (str) - which queue to run on
-            walltime (int) - walltime in hours
-            allocation (str) - allocation to charge against            
-            priority (str) - 'low' or 'high'
-            feature (str) - feature to specify for certain queue (e.g., 256GB)
-            username (str) - user name
-            bash (str) - bashrc to execute
-            mpi_command (str) - mpi command to execute
-            vasp (str) - path to VASP
-            out_file (str) - VASP output file
-            sub_file (str) - submission script file name
-            
-        Returns:
-            writes sub_file to calc_dir
-        """
-        fsub = os.path.join(self.calc_dir, sub_file)
-        long_calc_dir = os.path.join(os.getcwd(), self.calc_dir)
-        with open(fsub, 'w', newline='\n') as f:
-            f.write('#!/bin/sh\n')
-            f.write('#PBS -l nodes=%s:ppn=%s -q %s -l walltime=%s:00:00\n' % (nodes, ppn, queue, walltime))
-            if priority == 'high':
-                f.write('#PBS -l qos=high\n')
-            if feature != False:
-                f.write('#PBS -l feature=%s\n' % feature)
-            f.write('#PBS -e %s -o %s\n' % (long_calc_dir, long_calc_dir))
-            f.write('#PBS -k eo -m n -e %s -o %s\n' % (long_calc_dir, long_calc_dir))
-            f.write('#PBS -N %s\n' % log_name)
-            f.write('#PBS -A %s\n' % allocation)
-            f.write('source /home/%s/%s\n' % (username, bash))
-            f.write('export OMP_NUM_THREADS=1\n')
-            f.write('%s -np %s %s > %s\n' % (mpi_command, str(int(nodes) * int(ppn)), vasp, out_file))
-            f.write('exit 0\n')
-            
-    def sub_ginar(self, sub_file='sub.sh', out_file='job.o', nprocs=16, 
-                  mpi_command='/share/apps/intel/impi/5.0.3.048/intel64/bin/mpiexec.hydra',
-                  vasp='pvasp.5.4.4.intel'):
-        fsub = os.path.join(self.calc_dir, sub_file)
-        with open(fsub, 'w') as f:
-            f.write('#! /bin/bash\n')
-            f.write('#$ -cwd\n')
-            f.write('#$ -o %s\n' % out_file)
-            f.write('#$ -pe impi %s\n' % (str(nprocs)))
-            f.write('#$ -j yes\n')
-            f.write('%s -n %s %s > %s\n' % (mpi_command, str(nprocs), vasp, out_file))
-            
-    def sub_stampede2(self, sub_file='sub.sh', queue='skx-normal', job_name=False, total_nodes=1, walltime=48, out_file='job.o', allocation='TG-DMR970008S', vasp='vasp_std', mpi='ibrun', command=False):
-        fsub = os.path.join(self.calc_dir, sub_file)
-        if 'skx' in queue:
-            tasks_per_node = 48
-        else:
-            tasks_per_node = 68
-        total_tasks = int(total_nodes*tasks_per_node)
-        if not job_name:
-            job_name = os.path.split(os.getcwd())[-1]
-        with open(fsub, 'w') as f:
-            f.write('#! /bin/bash\n')
-            f.write('#SBATCH -p %s\n' % queue)
-            f.write('#SBATCH -J %s\n' % job_name)
-            f.write('#SBATCH -N %s\n' % str(total_nodes))
-            f.write('#SBATCH -n %s\n' % str(total_tasks))
-            f.write('#SBATCH -t %s:00:00\n' % str(walltime))
-            f.write('#SBATCH -A %s\n' % allocation)
-        
-            if not command:
-                f.write('%s /home1/06479/tg857781/bin/vasp/VASP_KyuJung/%s > %s\n' % (mpi, vasp, out_file))
-           # module load intel/18.0.0
-           # module load impi/18.0.0
-            if command:
-                f.write('\n%s\n' % command)
-                
-    def sub_eagle(self, sub_file='sub.sh', queue='standard', job_name=False, nodes=1, walltime=48, out_file='job.o', err_file='job.e', allocation='ngmd', vasp='vasp_std', mpi='srun', command=False):
-        fsub = os.path.join(self.calc_dir, sub_file)
-        tasks_per_node = 18
-        total_tasks = int(nodes*tasks_per_node)
-        if not job_name:
-            job_name = os.path.split(os.getcwd())[-1]
-        with open(fsub, 'w') as f:
-            f.write('#!/bin/bash\n')
-            f.write('#SBATCH -p %s\n' % queue)
-            f.write('#SBATCH -J %s\n' % job_name)
-            f.write('#SBATCH -e %s\n' % err_file)
-            f.write('#SBATCH -n %s\n' % str(total_tasks))
-            f.write('#SBATCH -t %s:00:00\n' % str(walltime))
-            f.write('#SBATCH -A %s\n' % allocation)
-            f.write('#SBATCH --output=log.o\n')
-            if not command:
-                f.write('\n%s -n %s /home/cbartel/bin/vasp_binaries/%s > %s\n' % (mpi, str(total_tasks), vasp, out_file))
-            if command:
-                f.write('\n%s\n' % command)
 
-    def sub_cori(self, sub_file='sub.sh', queue='regular', job_name=False, nodes=1, walltime=48, out_file='job.o', err_file='job.e', allocation='m1268', vasp='vasp_std', mpi='srun', command=False, partition='hsw'):
-        fsub = os.path.join(self.calc_dir, sub_file)
-        if partition == 'hsw':
-            tasks_per_node = 32
-            constraint = 'haswell'
-        elif partition == 'knl':
-            tasks_per_node = 64
-            constraint = 'knl,cache,quad'
-        total_tasks = int(nodes*tasks_per_node)
-        if not job_name:
-            job_name = os.path.split(os.getcwd())[-1]
-        with open(fsub, 'w') as f:
-            f.write('#!/bin/bash\n')
-            f.write('#SBATCH --qos=%s\n' % queue)
-            f.write('#SBATCH --job-name=%s\n' % job_name)
-            f.write('#SBATCH --time=%s\n' % str(walltime))
-            f.write('#SBATCH --tasks-per-node=%s\n' % str(tasks_per_node))
-            f.write('#SBATCH --constraint=%s\n' % constraint)
-            f.write('#SBATCH --account=%s\n' % allocation)
-            f.write('#SBATCH --error=%s\n' % err_file)
-            f.write('#SBATCH --output=%s\n'% out_file)
-            f.write('\ncd $SLURM_SUBMIT_DIR\n')
-            if not command:
-                if partition == 'hsw':
-                    f.write('\nsrun -n %s /global/homes/c/cbartel/bin/vasp_bins/hsw/%s_%s > %s\n' % (str(total_tasks), vasp, partition, 'vasp.out'))
-                elif partition == 'knl':
-                    f.write('\nexport OMP_PROC_BIND=true\n')
-                    f.write('export OMP_PLACES=threads\n')
-                    f.write('export OMP_NUM_THREADS=4\n')
-                    f.write('\nsrun -n %s -c 4 --cpu_bind=cores /global/homes/c/cbartel/bin/vasp_bins/knl/%s_%s > %s\n' % (str(total_tasks), vasp, partition, 'vasp.out'))
-                    
-            if command:
-                f.write('\n%s\n' % command)
-
+    @property
+    def lobster_orbitals(self):
+        potcar = os.path.join(self.calc_dir, 'POTCAR')
+        orbital_d = {}
+        l_to_orb = {0 : 's',
+                    1 : 'p',
+                    2 : 'd',
+                    3 : 'f'}
+        with open(potcar) as f:
+            count = 0
+            overall_count = 0
+            done = False
+            for line in f:
+                overall_count += 1
+                if 'VRHFIN' in line:
+                    el = line.split('=')[1].split(':')[0].strip()
+                    data = {}
+                    count = 0
+                    done = False
+                if overall_count == 2:
+                    nelec = float(''.join([char for char in line[:-1] if char != ' ']))
+                    overall_count = 1000
+                if 'Atomic configuration' in line:
+                    count += 1
+                if (count > 0) and (count < 4):
+                    count += 1
+                elif (count >= 4) and not done:
+                    if 'Description' in line:
+                        done = True
+                        continue
+                    line = line[:-1].split(' ')
+                    vals = [v for v in line if v != '']
+                    n = int(vals[0])
+                    l = int(vals[1])
+                    occ = int(float(vals[-1]))
+                    E = float(vals[3])
+                    data[(n, l)] = {'n' : n,
+                                    'l' : l,
+                                    'occ' : occ,
+                                    'E' : E,
+                                    'nelec' : nelec}
+                if done:
+                    Es = [data[k]['E'] for k in data]
+                    Es = np.sort(Es)[::-1]
+                    sum_occ = 0
+                    included_keys = []
+                    for E in Es:
+                        curr_keys = [k for k in data if (data[k]['E'] == E) and (data[k]['occ'] > 0)]
+                        included_keys.extend(curr_keys)
+                        sum_occ += np.sum([data[k]['occ'] for k in curr_keys])
+                        if sum_occ >= nelec:
+                            break
+                    nls = []
+                    for k in included_keys:
+                        nl = ''.join([str(k[0]), l_to_orb[k[1]]])
+                        nls.append(nl)
+                    orbital_d[el] = nls
+                    continue
+                if 'End of Dataset' in line:
+                    count = 0
+                    overall_count = 0
+        return orbital_d
 
 class JobSubmission(object):
     
@@ -836,12 +763,47 @@ class JobSubmission(object):
     def bader_command(self):
         return '\n/home/cbartel/bin/vtst/vtstscripts-940/chgsum.pl AECCAR0 AECCAR2\n/home/cbartel/bin/bader CHGCAR -ref CHGCAR_sum\n'
 
+    def write_lobster_orbs(self, calc_dir):
+        vsu = VASPSetUp(calc_dir)
+        orbs = vsu.lobster_orbitals
+        forbs = os.path.join(calc_dir, 'orbitals.txt')
+        with open(forbs, 'w') as f:
+            for el in orbs:
+                f.write(' '.join([str(val) for val in ['basisfunctions', el, ' '.join(orbs[el])]])+'\n')
+
+    @property
+    def lobster_command(self):
+        return '\n/home/cbartel/bin/lobster-3.2.0\n'
+
+    def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='Bunge', orbitalwise=False):
+        flob = os.path.join(calc_dir, 'lobsterin')
+        with open(flob, 'w') as f:
+            f.write(' '.join(['cohpGenerator', 'from', str(min_d), 'to', str(max_d)])+'\n')
+#            if orbitalwise:
+#                f.write('orbitalwise\n')
+            f.write(' '.join(['COHPstartEnergy', str(min_E)])+'\n')
+            f.write(' '.join(['COHPendEnergy', str(max_E)])+'\n')
+            f.write(' '.join(['basisSet', basis])+'\n')
+            vsu = VASPSetUp(calc_dir)
+#            orbs = vsu.lobster_orbitals
+#            for el in orbs:
+#                f.write(' '.join([str(v) for v in ['basisfunctions', el, ' '.join(orbs[el])]])+'\n')
+            vba = VASPBasicAnalysis(calc_dir)
+            sigma = vba.params_from_incar
+            if 'SIGMA' in sigma:
+                sigma = sigma['SIGMA']
+                f.write(' '.join(['gaussianSmearingWidth', str(sigma)])+'\n')
+            f.write('userecommendedbasisfunctions\n')
+            f.write('DensityOfEnergy\n')
+            f.write('BWDF\n')
+            f.write('BWDFCOHP\n')
+
     @property
     def calc_dirs(self):
         calcs = self.calcs
         launch_dir = self.launch_dir
         xcs = self.xcs
-        info = {xc : {calc : {'dir' :os.path.join(launch_dir, xc, calc)} for calc in calcs} for xc in xcs}
+        info = {xc : {calc : {'dir' : os.path.join(launch_dir, xc, calc)} for calc in calcs} for xc in xcs}
         for xc in xcs:
             xc_dir = os.path.join(launch_dir, xc)
             if not os.path.exists(xc_dir):
@@ -915,7 +877,6 @@ class JobSubmission(object):
         calcs = self.calcs
         postprocess = self.postprocess
         postprocess = {calc : [] if calc not in postprocess else postprocess[calc] for calc in calcs}
-        bader_command = self.bader_command
         with open(fsub, 'w') as f:
             f.write(line1)
             for tag in options:
@@ -960,6 +921,16 @@ class JobSubmission(object):
                                                       **sp_params})
                         elif calc == 'resp':
                             obj = VASPSetUp(calc_dir)
+                            if 'lobster' in postprocess[calc]:
+                                old_calc_dir = calc_dirs[xc]['opt']['dir']
+                                vba = VASPBasicAnalysis(old_calc_dir)
+                                if not vba.is_converged:
+                                    do_lobster = False
+                                    continue
+                                do_lobster = True
+                                old_nbands = vba.nbands
+                                resp_params['NBANDS'] = int(2*old_nbands)
+                                resp_params['ISYM'] = -1
                             obj.modify_incar(enforce={'IBRION' : -1,
                                                       'NSW' : 0,
                                                       'NELM' : 1000,
@@ -970,18 +941,43 @@ class JobSubmission(object):
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
                         f.write('\ncd %s' % calc_dir)
                         f.write(vasp_command)
-                        if 'bader' in postprocess[calc]:
-                            f.write(bader_command)
-   
-                        f.write('cd %s\n' % self.launch_dir)
+                        f.write('\ncd %s\n' % self.launch_dir)
                         f.write('echo launched %s-%s >> %s\n' % (xc, calc, fstatus))
+                        if postprocess[calc]:
+                            f.write('\ncd %s' % calc_dir)
+                            if 'bader' in postprocess[calc]:
+                                if not os.path.exists(os.path.join(calc_dir, 'ACF.dat')):
+                                    f.write(self.bader_command)
+                            if 'lobster' in postprocess[calc]:
+                                if do_lobster:
+                                    self.write_lobsterin(calc_dir)
+                                    f.write(self.lobster_command)
+                            f.write('cd %s\n' % self.launch_dir)
                     else:
                         f.write('echo %s-%s converged >> %s\n' % (xc, calc, fstatus))
                         if postprocess[calc]:
                             f.write('\ncd %s' % calc_dir)
                             if 'bader' in postprocess[calc]:
                                 if not os.path.exists(os.path.join(calc_dir, 'ACF.dat')):
-                                    f.write(bader_command)
+                                    f.write(self.bader_command)
+                            if 'lobster' in postprocess[calc]:
+                                obj = VASPSetUp(calc_dir)
+                                old_calc_dir = calc_dirs[xc]['opt']['dir']
+                                vba = VASPBasicAnalysis(old_calc_dir)
+                                if not vba.is_converged:
+                                    do_lobster = False
+                                    continue
+                                do_lobster = True
+                                old_nbands = vba.nbands
+                                resp_params['NBANDS'] = int(2*old_nbands)
+                                resp_params['ISYM'] = -1
+                                obj.modify_incar(enforce={'IBRION' : -1,
+                                                          'NSW' : 0,
+                                                          'NELM' : 1000,
+                                                          **resp_params})
+                                if do_lobster:
+                                    self.write_lobsterin(calc_dir)
+                                    f.write(self.lobster_command)
                             f.write('cd %s\n' % self.launch_dir)
 
 class DiffusionSetUp(object):
