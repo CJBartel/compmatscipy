@@ -911,6 +911,10 @@ class JobSubmission(object):
                                                       'ALGO' : 'All',
                                                       'ADDGRID' : 'TRUE',
                                                       'ISMEAR' : 0,
+                                                      'AMIX' : 0.1,
+                                                      'BMIX' : 0.0001,
+                                                      'AMIX_MAG' : 0.2,
+                                                      'BMIX_MAG' : 0.0001,
                                                       **opt_params})
                             obj.poscar(copy_contcar)
                         elif calc == 'sp':
