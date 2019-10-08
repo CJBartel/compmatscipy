@@ -480,6 +480,8 @@ class VASPSetUp(object):
             path_to_pots = '/home1/06479/tg857781/bin/pp'
         elif machine == 'cori':
             path_to_pots = '/global/homes/c/cbartel/bin/pp'
+        elif machine == 'savio':
+            path_to_pots = '/global/home/users/cbartel/bin/pp'
         if src == 'gga_54':
             pot_dir = 'POT_GGA_PAW_PBE_54'
         elif src == 'gga_52':
@@ -644,12 +646,21 @@ class JobSubmission(object):
         -vasps
         ---??
         ---??
+
+        savio
+        -partitions
+        ---savio (20 cores/node)
+        ---savio2 (24 cores/node)
+        -qos
+        ---savio_debug (4 nodes, 30 minutes)
+        ---savio_normal (72 hr)
+
         """
 
     @property
     def manager(self):
         machine = self.machine
-        if machine in ['eagle', 'cori', 'stampede2']:
+        if machine in ['eagle', 'cori', 'stampede2', 'savio']:
             return '#SBATCH'
         else:
             raise ValueError
@@ -664,6 +675,8 @@ class JobSubmission(object):
                 account = 'm1268'
             elif machine == 'stampede2':
                 account = 'TG-DMR970008S'
+            elif machine == 'savio':
+                account = 'fc_ceder'
             else:
                 raise ValueError
         partition = self.partition
@@ -683,16 +696,26 @@ class JobSubmission(object):
                 tasks_per_node = 48
             else:
                 tasks_per_node = 64
+        elif machine == 'savio':
+            if '2' in partition:
+                tasks_per_node = 24
+            else:
+                tasks_per_node = 20
         priority = self.priority
         if priority == 'low':
             qos = 'low'
-        if machine in ['cori', 'eagle']:
+        if machine in ['savio', 'cori', 'eagle']:
             mpi_command = 'srun'
         elif machine == 'stampede2':
             mpi_command = 'ibrun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
         ntasks = int(nodes*tasks_per_node)
         nodes = None if machine != 'stampede2' else nodes
+        if machine == 'savio':
+            if (':' not in walltime) or (walltime.split(':')[1] == '30'):
+                qos = 'savio_debug'
+            else:
+                qos = 'savio_normal'
         slurm_options = {'account' : account,
                          'constraint' : constraint,
                          'error' : err_file,
@@ -715,6 +738,8 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'cori':
             home_dir = '/global/homes/c/cbartel'
+        elif machine == 'savio':
+            home_dir = '/global/home/users/cbartel'
         else:
             raise ValueError
         vasp_dir = os.path.join(home_dir, 'bin', 'vasp')
@@ -727,6 +752,8 @@ class JobSubmission(object):
             return 'ibrun'
         elif machine in ['cori', 'eagle']:
             return 'srun'
+        elif machine == 'savio':
+            return 'mpirun'
         else:
             raise ValueError
 
@@ -761,7 +788,12 @@ class JobSubmission(object):
 
     @property
     def bader_command(self):
-        return '\n/home/cbartel/bin/vtst/vtstscripts-940/chgsum.pl AECCAR0 AECCAR2\n/home/cbartel/bin/bader CHGCAR -ref CHGCAR_sum\n'
+        machine = self.machine
+        if machine == 'eagle':
+            home_dir = '/home/cbartel'
+        elif machine == 'savio':
+            home_dir = '/global/home/users/cbartel'
+        return '\n%s/bin/chgsum.pl AECCAR0 AECCAR2\n%s/bin/bader CHGCAR -ref CHGCAR_sum\n' % (home_dir, home_dir)
 
     def write_lobster_orbs(self, calc_dir):
         vsu = VASPSetUp(calc_dir)
@@ -773,7 +805,12 @@ class JobSubmission(object):
 
     @property
     def lobster_command(self):
-        return '\n/home/cbartel/bin/lobster-3.2.0\n'
+        machine = self.machine
+        if machine == 'eagle':
+            home_dir = '/home/cbartel'
+        elif machine == 'savio':
+            home_dir = '/global/home/users/cbartel'
+        return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='Bunge', orbitalwise=False):
         flob = os.path.join(calc_dir, 'lobsterin')
@@ -865,7 +902,7 @@ class JobSubmission(object):
         machine = self.machine
         sub_file = self.sub_file
         fsub = os.path.join(self.launch_dir, sub_file)
-        allowed_machines = ['stampede2', 'eagle', 'cori']
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio']
         if machine not in allowed_machines:
             raise ValueError
         line1 = '#!/bin/bash\n'
