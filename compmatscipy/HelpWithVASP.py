@@ -855,22 +855,9 @@ class JobSubmission(object):
                 else:
                     convergence = VASPBasicAnalysis(calc_dir).is_converged
                 info[xc][calc]['convergence'] = convergence
-        for xc in xcs:
-            for calc in calcs:
-                if calc == 'opt':
-                    if xc == 'pbe':
-                        ready = True
-                    elif xc == 'scan':
-                        ready = info['pbe'][calc]['convergence']
-                    else:
-                        raise ValueError
-                elif calc == 'sp':
-                    ready = info[xc]['opt']['convergence']
-                elif calc == 'resp':
-                    ready = info[xc]['sp']['convergence']
-                else:
-                    raise ValueError
-                info[xc][calc]['ready'] = ready
+            if not info[xc]['opt']['convergence']:
+                for calc in calcs:
+                    info[xc][calc]['convergence'] = False
         return info
 
     def copy_files(self, xc, calc, overwrite=False):
