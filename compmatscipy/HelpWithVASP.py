@@ -924,6 +924,7 @@ class JobSubmission(object):
                 for calc in calcs:
                     convergence = calc_dirs[xc][calc]['convergence']
                     calc_dir = calc_dirs[xc][calc]['dir']
+                    cohpcar = os.path.join(calc_dir, 'COHPCAR.lobster')
                     obj = VASPSetUp(calc_dir)
                     if not convergence:
                         self.copy_files(xc, calc, overwrite=fresh_restart)
@@ -952,7 +953,7 @@ class JobSubmission(object):
                             if 'lobster' in postprocess[calc]:
                                 old_calc_dir = calc_dirs[xc]['opt']['dir']
                                 vba = VASPBasicAnalysis(old_calc_dir)
-                                if not vba.is_converged:
+                                if not vba.is_converged or os.path.exists(cohpcar):
                                     do_lobster = False
                                     continue
                                 do_lobster = True
@@ -992,7 +993,7 @@ class JobSubmission(object):
                                 obj = VASPSetUp(calc_dir)
                                 old_calc_dir = calc_dirs[xc]['opt']['dir']
                                 vba = VASPBasicAnalysis(old_calc_dir)
-                                if not vba.is_converged:
+                                if not vba.is_converged or os.path.exists(cohpcar):
                                     do_lobster = False
                                     continue
                                 do_lobster = True
