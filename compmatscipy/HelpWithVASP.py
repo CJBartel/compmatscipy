@@ -670,7 +670,7 @@ class JobSubmission(object):
         account, machine = self.account, self.machine
         if not account:
             if machine == 'eagle':
-                account = 'ngmd'
+                account = 'sngmd'
             elif machine == 'cori':
                 account = 'm1268'
             elif machine == 'stampede2':
@@ -855,22 +855,9 @@ class JobSubmission(object):
                 else:
                     convergence = VASPBasicAnalysis(calc_dir).is_converged
                 info[xc][calc]['convergence'] = convergence
-        for xc in xcs:
-            for calc in calcs:
-                if calc == 'opt':
-                    if xc == 'pbe':
-                        ready = True
-                    elif xc == 'scan':
-                        ready = info['pbe'][calc]['convergence']
-                    else:
-                        raise ValueError
-                elif calc == 'sp':
-                    ready = info[xc]['opt']['convergence']
-                elif calc == 'resp':
-                    ready = info[xc]['sp']['convergence']
-                else:
-                    raise ValueError
-                info[xc][calc]['ready'] = ready
+            if not info[xc]['opt']['convergence']:
+                for calc in calcs:
+                    info[xc][calc]['convergence'] = False
         return info
 
     def copy_files(self, xc, calc, overwrite=False):
@@ -937,6 +924,7 @@ class JobSubmission(object):
                 for calc in calcs:
                     convergence = calc_dirs[xc][calc]['convergence']
                     calc_dir = calc_dirs[xc][calc]['dir']
+                    cohpcar = os.path.join(calc_dir, 'COHPCAR.lobster')
                     obj = VASPSetUp(calc_dir)
                     if not convergence:
                         self.copy_files(xc, calc, overwrite=fresh_restart)
@@ -965,7 +953,7 @@ class JobSubmission(object):
                             if 'lobster' in postprocess[calc]:
                                 old_calc_dir = calc_dirs[xc]['opt']['dir']
                                 vba = VASPBasicAnalysis(old_calc_dir)
-                                if not vba.is_converged:
+                                if not vba.is_converged or os.path.exists(cohpcar):
                                     do_lobster = False
                                     continue
                                 do_lobster = True
@@ -1005,7 +993,7 @@ class JobSubmission(object):
                                 obj = VASPSetUp(calc_dir)
                                 old_calc_dir = calc_dirs[xc]['opt']['dir']
                                 vba = VASPBasicAnalysis(old_calc_dir)
-                                if not vba.is_converged:
+                                if not vba.is_converged or os.path.exists(cohpcar):
                                     do_lobster = False
                                     continue
                                 do_lobster = True
