@@ -1193,10 +1193,17 @@ class VASPBasicAnalysis(object):
         if not os.path.exists(outcar):
             print('no OUTCAR file')
             return False
-        with open(outcar) as f:
-            contents = f.read()
-            if 'Elaps' not in contents:
-                return False
+        try:
+            with open(outcar) as f:
+                contents = f.read()
+                if 'Elaps' not in contents:
+                    return False
+        except UnicodeDecodeError:
+            with open(outcar, 'rb') as f:
+                contents = f.read()
+                contents = str(contents)
+                if 'Elaps' not in contents:
+                    return False
         params = self.params_from_outcar(num_params=['NELM', 'NSW'], str_params=[])
         nelm, nsw = params['NELM'], params['NSW']
         if nsw == 0:    
