@@ -18,3 +18,4 @@ lib64
 
 # IPython checkpoints
 *-checkpoint.ipynb
+*.DS_Store
