@@ -240,11 +240,19 @@ class VASPSetUp(object):
             d[k] = standard[k]
         
         if mag:
-            if 'ISPIN' not in d:
-                d['ISPIN'] = 2
-            if 'MAGMOM' not in d:
-                magmom = make_magmom(self.ordered_els_from_poscar(), self.els_to_idxs, spin=5, config=mag)            
-                d['MAGMOM'] = magmom
+            ordered_els = self.ordered_els_from_poscar()
+            all_mag_els = magnetic_els()
+            nmagnetic_els = len([el for el in ordered_els if el in all_mag_els])
+            if nmagnetic_els == 0:
+                d['ISPIN'] = 1
+                if 'MAGMOM' not in skip:
+                    skip.append('MAGMOM')
+            else:
+                if 'ISPIN' not in d:
+                    d['ISPIN'] = 2
+                if 'MAGMOM' not in d:
+                    magmom = make_magmom(ordered_els, self.els_to_idxs, spin=5, config=mag)            
+                    d['MAGMOM'] = magmom
 
         fincar = os.path.join(self.calc_dir, 'INCAR')
         if MP == 'Relax':
@@ -303,8 +311,25 @@ class VASPSetUp(object):
         Returns:
             writes KPOINTS file to calc_dir
         """
+        nsites = self.nsites
+        els = self.ordered_els_from_poscar
         fkpoints = os.path.join(self.calc_dir, 'KPOINTS')
         with open(fkpoints, 'w') as f:
+            if nsites == 1:
+                f.write('Auto\n')
+                f.write('0\n')
+                f.write('Gamma\n')
+                f.write('6 6 6\n')
+                f.write('0 0 0')
+                return
+            elif nsites == 2:
+                if els in [['O'], ['H'], ['Cl'], ['F'], ['N']]:
+                    f.write('Auto\n')
+                    f.write('0\n')
+                    f.write('Gamma\n')
+                    f.write('1 1 1\n')
+                    f.write('0 0 0\n')
+                    return
             if grid != False:
                 f.write('Auto\n')
                 f.write('0\n')
@@ -323,7 +348,7 @@ class VASPSetUp(object):
                 Kpoints().automatic_density(s, kppa=kppa).write_file(fkpoints)
                 
             else:
-                print('youn need to specify how to write the KPOINTS file')
+                print('you need to specify how to write the KPOINTS file')
                 
     def poscar(self, copy_contcar=False):
         """
@@ -927,6 +952,7 @@ class JobSubmission(object):
                     cohpcar = os.path.join(calc_dir, 'COHPCAR.lobster')
                     obj = VASPSetUp(calc_dir)
                     if not convergence:
+                        eh = ErrorHandler(calc_dir)
                         self.copy_files(xc, calc, overwrite=fresh_restart)
                         if (xc == 'pbe') and (calc == 'opt'):
                             obj.modify_incar(enforce=opt_params)
@@ -964,6 +990,8 @@ class JobSubmission(object):
                                                       'NSW' : 0,
                                                       'NELM' : 1000,
                                                       **resp_params})
+                        if not eh.is_clean:
+                            eh.handle_errors
                         if calc in ['sp', 'resp']:
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs[xc]['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         elif xc == 'scan':
@@ -1008,6 +1036,110 @@ class JobSubmission(object):
                                     self.write_lobsterin(calc_dir)
                                     f.write(self.lobster_command)
                             f.write('cd %s\n' % self.launch_dir)
+
+class ErrorHandler(object):
+
+    def __init__(self, calc_dir, out_file='vasp.out'):
+        error_msgs = {
+            "tet": ["Tetrahedron method fails for NKPT<4",
+                    "Fatal error detecting k-mesh",
+                    "Fatal error: unable to match k-point",
+                    "Routine TETIRR needs special values",
+                    "Tetrahedron method fails (number of k-points < 4)"],
+            "inv_rot_mat": ["inverse of rotation matrix was not found (increase "
+                            "SYMPREC)"],
+            "brmix": ["BRMIX: very serious problems"],
+            "subspacematrix": ["WARNING: Sub-Space-Matrix is not hermitian in "
+                               "DAV"],
+            "tetirr": ["Routine TETIRR needs special values"],
+            "incorrect_shift": ["Could not get correct shifts"],
+            "real_optlay": ["REAL_OPTLAY: internal error",
+                            "REAL_OPT: internal ERROR"],
+            "rspher": ["ERROR RSPHER"],
+            "dentet": ["DENTET"],
+            "too_few_bands": ["TOO FEW BANDS"],
+            "triple_product": ["ERROR: the triple product of the basis vectors"],
+            "rot_matrix": ["Found some non-integer element in rotation matrix"],
+            "brions": ["BRIONS problems: POTIM should be increased"],
+            "pricel": ["internal error in subroutine PRICEL"],
+            "zpotrf": ["LAPACK: Routine ZPOTRF failed"],
+            "amin": ["One of the lattice vectors is very long (>50 A), but AMIN"],
+            "zbrent": ["ZBRENT: fatal internal in",
+                       "ZBRENT: fatal error in bracketing"],
+            "pssyevx": ["ERROR in subspace rotation PSSYEVX"],
+            "eddrmm": ["WARNING in EDDRMM: call to ZHEGV failed"],
+            "edddav": ["Error EDDDAV: Call to ZHEGV failed"],
+            "grad_not_orth": [
+                "EDWAV: internal error, the gradient is not orthogonal"],
+            "nicht_konv": ["ERROR: SBESSELITER : nicht konvergent"],
+            "zheev": ["ERROR EDDIAG: Call to routine ZHEEV failed!"],
+            "elf_kpar": ["ELF: KPAR>1 not implemented"],
+            "elf_ncl": ["WARNING: ELF not implemented for non collinear case"],
+            "rhosyg": ["RHOSYG internal error"],
+            "posmap": ["POSMAP internal error: symmetry equivalent atom not found"],
+            "point_group": ["Error: point group operation missing"]
+        }
+        self.error_msgs = error_msgs
+        self.out_file = os.path.join(calc_dir, out_file)
+        self.calc_dir = calc_dir
+        
+    @property
+    def error_log(self):
+        error_msgs = self.error_msgs
+        out_file = self.out_file
+        errors = []
+        with open(out_file) as f:
+            contents = f.read()
+        for e in error_msgs:
+            for t in error_msgs[e]:
+                if t in contents:
+                    errors.append(e)
+        return errors
+
+    @property
+    def is_clean(self):
+        if VASPBasicAnalysis(self.calc_dir).is_converged:
+            return True
+        if not os.path.exists(self.out_file):
+            return True
+        errors = self.error_log
+        if len(errors) == 0:
+            return True
+        with open(os.path.join(self.calc_dir, 'errors'), 'w') as f:
+            for e in errors:
+                f.write(e+'\n')
+        return False
+    
+    @property
+    def handle_errors(self):
+        errors = self.error_log
+        vsu = VASPSetUp(self.calc_dir)
+        chgcar = os.path.join(self.calc_dir, 'CHGCAR')
+        wavecar = os.path.join(self.calc_dir, 'WAVECAR')
+        
+        enforce = {}
+        if 'grad_not_orth' in errors:
+            enforce['SIGMA'] = 0.05
+            if os.path.exists(wavecar):
+                os.remove(wavecar)
+            enforce['ALGO'] = 'Exact'
+        if 'edddav' in errors:
+            enforce['ALGO'] = 'All'
+            if os.path.exists(chgcar):
+                os.remove(chgcar)
+        if 'eddrmm' in errors:
+            if os.path.exists(wavecar):
+                os.remove(wavecar)
+        if 'subspacematrix' in errors:
+            enforce['LREAL'] = 'FALSE'
+            enforce['PREC'] = 'Accurate'
+        if 'inv_rot_mat' in errors:
+            enforce['SYMPREC'] = 1e-8
+        if 'zheev' in errors:
+            enforce['ALGO'] = 'Exact'
+        if 'zpotrf' in errors:
+            enforce['ISYM'] = -1
+        vsu.modify_incar(enforce=enforce)
 
 class DiffusionSetUp(object):
     """
