@@ -837,7 +837,7 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
-    def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='Bunge', orbitalwise=False):
+    def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):
         flob = os.path.join(calc_dir, 'lobsterin')
         with open(flob, 'w') as f:
             f.write(' '.join(['cohpGenerator', 'from', str(min_d), 'to', str(max_d)])+'\n')
@@ -871,7 +871,10 @@ class JobSubmission(object):
             if not os.path.exists(xc_dir):
                 os.mkdir(xc_dir)
             for calc in calcs:
-                calc_dir = os.path.join(xc_dir, calc)
+                if calc == 'neb':
+                    calc_dir = launch_dir
+                else:
+                    calc_dir = os.path.join(xc_dir, calc)
                 if not os.path.exists(calc_dir):
                     os.mkdir(calc_dir)
                 outcar = os.path.join(calc_dir, 'OUTCAR')
@@ -880,12 +883,15 @@ class JobSubmission(object):
                 else:
                     convergence = VASPBasicAnalysis(calc_dir).is_converged
                 info[xc][calc]['convergence'] = convergence
-            if not info[xc]['opt']['convergence']:
-                for calc in calcs:
-                    info[xc][calc]['convergence'] = False
+            if calcs != ['neb']:
+                if not info[xc]['opt']['convergence']:
+                    for calc in calcs:
+                        info[xc][calc]['convergence'] = False
         return info
 
     def copy_files(self, xc, calc, overwrite=False):
+        if calc == 'neb':
+            return
         calc_dirs = self.calc_dirs
         base_files = ['KPOINTS', 'INCAR', 'POTCAR', 'POSCAR']
         continue_files = ['WAVECAR', 'CONTCAR']
@@ -926,6 +932,12 @@ class JobSubmission(object):
         calcs = self.calcs
         postprocess = self.postprocess
         postprocess = {calc : [] if calc not in postprocess else postprocess[calc] for calc in calcs}
+        if 'sp' in postprocess:
+            if 'bader' in postprocess['sp']:
+                sp_params['LAECHG'] = 'TRUE'
+        if 'resp' in postprocess:
+            if 'bader' in postprocess['resp']:
+                resp_params['LAECHG'] = 'TRUE'
         with open(fsub, 'w') as f:
             f.write(line1)
             for tag in options:
@@ -1139,6 +1151,8 @@ class ErrorHandler(object):
             enforce['ALGO'] = 'Exact'
         if 'zpotrf' in errors:
             enforce['ISYM'] = -1
+        if 'zbrent' in errors:
+            enforce['IBRION'] = 1
         vsu.modify_incar(enforce=enforce)
 
 class DiffusionSetUp(object):
@@ -1553,7 +1567,22 @@ class VASPBasicAnalysis(object):
         else:
             Eg, Egd = np.nan, np.nan
         return {'Eg' : Eg, 'Egd' : Egd}                
-
+        
+    @property
+    def mg_gaps(self):
+        """
+        """
+        from pymatgen.io.vasp.outputs import Eigenval
+        calc_dir = self.calc_dir
+        feig = os.path.join(calc_dir, 'EIGENVAL')
+        if os.path.exists(feig):
+            e = Eigenval(feig)
+            props = ['Eg', 'cbm', 'vbm', 'is_direct']
+            out = e.eigenvalue_band_properties
+            return dict(zip(props, out))
+        else:
+            return None
+        
     @property
     def core_level_shift(self):
         """
