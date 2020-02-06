@@ -15,6 +15,8 @@ import matplotlib as mpl
 from compmatscipy.CompAnalyzer import CompAnalyzer
 import itertools
 from compmatscipy.HullAnalysis import GetHullInputData, AnalyzeHull
+from compmatscipy.ThermoEq import ThermoEq
+import math
 
 class TrianglePD(object):
     
@@ -283,6 +285,70 @@ class TrianglePD(object):
                                  skip_certain_labels)
         return ax
     
+    def color_matrix(self, npts=20):
+        input_data = self.input_data
+        els = self.els
+        xleft = np.linspace(0, 1, npts)
+        xcenter, xright = xleft, xleft
+        data = []
+        count = 0
+        for i in range(npts):
+            for j in range(npts):
+                for k in range(npts):
+                    feed = {els[2] : xleft[i],
+                            els[0] : xright[j],
+                            els[1] : xcenter[k]}
+                    if np.sum(list(feed.values())) != 1:
+                        continue
+                    value = _compute_energy(input_data, feed)
+                    if math.isnan(value):
+                        continue
+                    data.append([i, j, k, value])
+                    count += 1
+        return np.array(data)
+    
+    def add_color(self, vmin=False, vmax=False,
+                  cmap='plasma_r',
+                  nlevels=100, npts=20,
+                  alpha=1):
+        input_data = self.input_data
+        if not vmin:
+            vmin = np.min([input_data[c]['Ef'] for c in input_data])
+            vmin = np.round(vmin, 2)
+        vmax = 0 if not vmax else vmax
+        matrix = self.color_matrix(npts)
+        a = matrix[:,0]
+        b = matrix[:,1]
+        c = matrix[:,2]
+        v = matrix[:,-1]
+        x = 0.5 * ( 2.*b+c ) / ( a+b+c )
+        y = 0.5*np.sqrt(3) * c / (a+b+c)
+        T = mpl.tri.Triangulation(x, y)    
+        ax = plt.tricontourf(x,y,T.triangles,v,
+                             levels=nlevels,
+                             vmin=vmin, vmax=vmax,
+                             cmap=cmap,
+                             alpha=alpha)
+        return ax, vmin, vmax, cmap, alpha
+    
+def _compute_energy(input_data, feed):
+    data = {}
+    for c in input_data:
+        if c not in feed:
+            amt = 0
+        else:
+            amt = feed[c]
+        data[c] = {'dG' : input_data[c]['Ef'],
+                   'amt' : amt,
+                   'phase' : 'solid'}
+    for el in feed:
+        data[el] = {'dG' : 0,
+                   'amt' : feed[el],
+                   'phase' : 'solid'}
+    obj = ThermoEq(data, 300)
+    minG = obj.minimized_G
+    return minG/96.485
+    
 def triangle_to_square(pt):
     """
     Args:
@@ -394,10 +460,15 @@ def cmpd_to_pt(cmpd, els):
     tri = [CompAnalyzer(cmpd).fractional_amt_of_el(el) for el in els]
     return triangle_to_square(tri)
 
-
-              
-def main():
-    return
-
-if __name__ == '__main__':
-    main()
+def add_colorbar(fig, label, ticks, 
+                 cmap, vmin, vmax, position, 
+                 label_size, tick_size, tick_len, tick_width,
+                 alpha=1):
+    norm = plt.cm.colors.Normalize(vmin=vmin, vmax=vmax)
+    cax = fig.add_axes(position)    
+    cb = mpl.colorbar.ColorbarBase(ax=cax, cmap=cmap, norm=norm, orientation='vertical', alpha=alpha)
+    cb.set_label(label, fontsize=label_size)
+    cb.set_ticks(ticks)
+    cb.ax.set_yticklabels(ticks)
+    cb.ax.tick_params(labelsize=tick_size, length=tick_len, width=tick_width)
+    return fig 

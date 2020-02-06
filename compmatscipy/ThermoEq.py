@@ -15,7 +15,7 @@ import time
 
 class ThermoEq(object):
     
-    def __init__(self, input_data, temp):
+    def __init__(self, input_data, temp, excluded_from_solution=[]):
         """
         Args:
             
@@ -34,6 +34,7 @@ class ThermoEq(object):
             input_data[formula]['dG'] = dG_kJ
         self.input_data = input_data
         self.temp = temp
+        self.excluded = excluded_from_solution
         
     @property
     def _sorted_formulas(self):
@@ -55,11 +56,12 @@ class ThermoEq(object):
         input_data = self.input_data
         relevant_els = self._relevant_els
         sorted_formulas = self._sorted_formulas
-        A = np.zeros((len(relevant_els), len(input_data)))
+        formulas = [f for f in sorted_formulas if f not in self.excluded]
+        A = np.zeros((len(relevant_els), len(formulas)))
         for row in range(len(relevant_els)):
             el = relevant_els[row]
-            for col in range(len(input_data)):
-                formula = sorted_formulas[col]
+            for col in range(len(formulas)):
+                formula = formulas[col]
                 A[row,col] = CompAnalyzer(formula).amt_of_el(el)
         return A
     
@@ -81,7 +83,8 @@ class ThermoEq(object):
     def Gjo(self):
         input_data = self.input_data
         sorted_formulas = self._sorted_formulas
-        return [input_data[formula]['dG'] for formula in sorted_formulas]
+        formulas = [f for f in sorted_formulas if f not in self.excluded]
+        return [input_data[formula]['dG'] for formula in formulas]
     
     @property
     def solution(self):
@@ -90,13 +93,14 @@ class ThermoEq(object):
         Gjo, A, b = self.Gjo, self.A, self.b
         R = 0.008314 # kJ/mol/K
         sorted_formulas = self._sorted_formulas
-        n0 = [input_data[formula]['amt']+1e-4 for formula in sorted_formulas]
+        formulas = [f for f in sorted_formulas if f not in self.excluded]
+        n0 = [input_data[formula]['amt']+1e-4 for formula in formulas]
         bounds = [(1e-8, 1e1*np.sum(n0)) for i in n0]
         def func(nj):
             nj = np.array(nj)
-            Enj = np.sum([nj[i] for i in range(len(nj)) if input_data[sorted_formulas[i]]['phase'] == 'nonsolid'])
+            Enj = np.sum([nj[i] for i in range(len(nj)) if input_data[formulas[i]]['phase'] == 'nonsolid'])
             if Enj != 0:
-                Gj =  [(Gjo[i] + R*T*np.log(nj[i] / Enj)) if input_data[sorted_formulas[i]]['phase'] == 'nonsolid' else (Gjo[i]) for i in range(len(nj))]
+                Gj =  [(Gjo[i] + R*T*np.log(nj[i] / Enj)) if input_data[formulas[i]]['phase'] == 'nonsolid' else (Gjo[i]) for i in range(len(nj))]
             else:
                 Gj =  [Gjo[i] for i in range(len(nj))]
     #        Gj = [(Gjo[i] / (0.008314 * T) + np.log(nj[i] / Enj)) for i in range(len(nj))]
@@ -128,9 +132,10 @@ class ThermoEq(object):
     def results(self):
         T = self.temp
         sorted_formulas = self._sorted_formulas
+        formulas = [f for f in sorted_formulas if f not in self.excluded]
         N, fx = self.solution
         r = {}
-        for s, n in zip(list(sorted_formulas), N):
+        for s, n in zip(list(formulas), N):
             r[s] = n/np.sum(N)
         return r
     
@@ -152,7 +157,7 @@ def main():
                      'amt' : 1.5,
                      'dG' : 0}, }   
                      
-    obj = ThermoEq(data, 1000)
+    obj = ThermoEq(data, 1000, ['Al2O3'])
     print(obj.results)
     return obj
 

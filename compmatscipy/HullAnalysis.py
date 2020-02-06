@@ -4,7 +4,8 @@ from scipy.spatial import ConvexHull
 from scipy.optimize import fmin_slsqp, minimize
 from compmatscipy.CompAnalyzer import CompAnalyzer
 from compmatscipy.handy_functions import read_json, write_json
-
+ 
+    
 def _hullin_from_space(compound_to_energy, compounds, space, verbose=False):
     if verbose:
         print(space)
@@ -616,37 +617,9 @@ class AnalyzeHull(object):
                    'rxn' : decomp_rxn,
                    'stability' : stability}
         return data[c]
-        
+    
 def main():
-    d = read_json(os.path.join('/Users/chrisbartel/Dropbox/postdoc/projects/paper-db/data/MP/MP_query_gs.json'))
-    d = {k : d[k] for k in d if (('Ce' in k) and ('N' in k)) or (('Mn' in k) and ('N' in k))}
-    print(len(d))
-    obj = GetHullInputData(d, 'H')
-    from time import time
-    start = time()
-
-    hullin = obj.hull_data(False, False)
-    print(len(hullin))
-    
-    compounds = [list(hullin[space].keys()) for space in hullin]
-    all_compounds = [j for i in compounds for j in i]
-    compounds = list(set([j for i in compounds for j in i]))
-    
-    compound_to_smallest_space_size = {c : np.min([s.count('_') for s in hullin if c in hullin[s]]) for c in compounds}    
-    
-    compound_to_space = {c : [s for s in hullin if c in hullin[s] if s.count('_') == compound_to_smallest_space_size[c]][0] for c in compounds}
-    
-    
-    for compound in compound_to_space:
-        print(compound)
-        space = compound_to_space[compound]
-        hullout = AnalyzeHull(hullin, space).cmpd_hull_output_data(compound)    
-    
-    
-    
-    end = time()
-    print(end - start)
     return
 
 if __name__ == '__main__':
-    d = main()
+    main()
