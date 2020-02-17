@@ -177,7 +177,8 @@ class VASPSetUp(object):
                               'ISYM' : 0}, 
                     additional={},
                     skip=[],
-              MP=False):
+              MP=False,
+              vdW=False):
         """
         Args:
             is_geometry_opt (bool) - True if geometry is to be optimized
@@ -236,6 +237,14 @@ class VASPSetUp(object):
             d['IBRION'] = 6
             d['LCALCEPS'] = 'TRUE'
             
+        if vdW:
+            if functional == 'pbe':
+                if vdW == 'D3':
+                    d['IVDW'] = 11
+            if functional == 'scan':
+                if vdW == 'rVV10':
+                    d['LUSE_VDW'] = 'TRUE'
+
         for k in standard:
             d[k] = standard[k]
         
@@ -907,6 +916,12 @@ class JobSubmission(object):
         elif xc == 'scan':
             src_dir = calc_dirs['pbe'][calc]['dir']
             files = continue_files + base_files
+        elif xc == 'd3':
+            src_dir = calc_dirs['pbe'][calc]['dir']
+            files = continue_files + base_files
+        elif xc == 'rVV10':
+            src_dir = calc_dirs['scan'][calc]['dir']
+            files = continue_files + base_files
         dst_dir = calc_dirs[xc][calc]['dir']
         for f in files:
             src = os.path.join(src_dir, f)
@@ -920,7 +935,7 @@ class JobSubmission(object):
         machine = self.machine
         sub_file = self.sub_file
         fsub = os.path.join(self.launch_dir, sub_file)
-        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio']
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges']
         if machine not in allowed_machines:
             raise ValueError
         line1 = '#!/bin/bash\n'
