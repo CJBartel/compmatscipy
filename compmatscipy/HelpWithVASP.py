@@ -499,7 +499,7 @@ class VASPSetUp(object):
         if not els_in_poscar:
             els_in_poscar = self.ordered_els_from_poscar()
         fpotcar = os.path.join(self.calc_dir, 'POTCAR')
-        if machine == 'eagle':
+        if machine in ['eagle', 'bridges']:
             path_to_pots = '/home/cbartel/bin/pp'
         elif machine == 'stampede2':
             path_to_pots = '/home1/06479/tg857781/bin/pp'
@@ -680,12 +680,18 @@ class JobSubmission(object):
         ---savio_debug (4 nodes, 30 minutes)
         ---savio_normal (72 hr)
 
+        bridges
+        -partitions
+        ---RM (28 cores/node)
+        ---RM-small (<= 2 nodes, <= 8 hrs)
+        
+
         """
 
     @property
     def manager(self):
         machine = self.machine
-        if machine in ['eagle', 'cori', 'stampede2', 'savio']:
+        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges']:
             return '#SBATCH'
         else:
             raise ValueError
@@ -702,6 +708,8 @@ class JobSubmission(object):
                 account = 'TG-DMR970008S'
             elif machine == 'savio':
                 account = 'fc_ceder'
+            elif machine == 'bridges':
+                account = 'mr7tu0p'
             else:
                 raise ValueError
         partition = self.partition
@@ -726,6 +734,8 @@ class JobSubmission(object):
                 tasks_per_node = 24
             else:
                 tasks_per_node = 20
+        elif machine == 'bridges':
+            tasks_per_node = 28
         priority = self.priority
         if priority == 'low':
             qos = 'low'
@@ -733,6 +743,8 @@ class JobSubmission(object):
             mpi_command = 'srun'
         elif machine == 'stampede2':
             mpi_command = 'ibrun'
+        elif machine == 'bridges':
+            mpi_command = 'mpirun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
         ntasks = int(nodes*tasks_per_node)
         nodes = None if machine != 'stampede2' else nodes
@@ -765,6 +777,8 @@ class JobSubmission(object):
             home_dir = '/global/homes/c/cbartel'
         elif machine == 'savio':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges':
+            home_dir = '/home/cbartel'
         else:
             raise ValueError
         vasp_dir = os.path.join(home_dir, 'bin', 'vasp')
@@ -777,7 +791,7 @@ class JobSubmission(object):
             return 'ibrun'
         elif machine in ['cori', 'eagle']:
             return 'srun'
-        elif machine == 'savio':
+        elif machine in ['savio', 'bridges']:
             return 'mpirun'
         else:
             raise ValueError
@@ -818,6 +832,8 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'savio':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges':
+            home_dir = '/home/cbartel'
         return '\n%s/bin/chgsum.pl AECCAR0 AECCAR2\n%s/bin/bader CHGCAR -ref CHGCAR_sum\n' % (home_dir, home_dir)
 
     def write_lobster_orbs(self, calc_dir):
@@ -835,6 +851,8 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'savio':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges':
+            home_dir = '/home/cbartel'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):
@@ -920,7 +938,7 @@ class JobSubmission(object):
         machine = self.machine
         sub_file = self.sub_file
         fsub = os.path.join(self.launch_dir, sub_file)
-        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio']
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges']
         if machine not in allowed_machines:
             raise ValueError
         line1 = '#!/bin/bash\n'
