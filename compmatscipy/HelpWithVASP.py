@@ -178,7 +178,8 @@ class VASPSetUp(object):
                     additional={},
                     skip=[],
               MP=False,
-              vdW=False):
+              vdW=False,
+              U=False):
         """
         Args:
             is_geometry_opt (bool) - True if geometry is to be optimized
@@ -192,6 +193,7 @@ class VASPSetUp(object):
         MP (bool or str) - False or "Relax" to impose MP Relax parameters
         Returns:
             writes INCAR file to calc_dir; returns dictionary of INCAR settings
+        if U not False, should be in {el : {'L' : LDAUL value, 'U' : LDAUU avlue} for all els in POSCAR}
         """
         d = {}
         
@@ -244,6 +246,16 @@ class VASPSetUp(object):
             if functional == 'scan':
                 if vdW == 'rVV10':
                     d['LUSE_VDW'] = 'TRUE'
+    
+        if U:
+            ordered_els = self.ordered_els_from_poscar()
+            nels = len(ordered_els)
+            d['LDAU'] = 'TRUE'
+            d['LDAUTYPE'] = 2
+            d['LDAUPRINT'] = 1
+            d['LDAUJ'] = ' '.join([str(0) for v in ordered_els])
+            d['LDAUL'] = ' '.join([str(U[el]['L']) for el in U])
+            d['LDAUU'] = ' '.join([str(U[el]['U']) for el in U])
 
         for k in standard:
             d[k] = standard[k]
@@ -940,6 +952,9 @@ class JobSubmission(object):
         elif xc == 'rVV10':
             src_dir = calc_dirs['scan'][calc]['dir']
             files = continue_files + base_files
+        elif xc == 'pbeu':
+            src_dir = calc_dirs['pbe'][calc]['dir']
+            files = base_files
         dst_dir = calc_dirs[xc][calc]['dir']
         for f in files:
             src = os.path.join(src_dir, f)
@@ -948,7 +963,7 @@ class JobSubmission(object):
                 if not os.path.exists(dst) or overwrite:
                     copyfile(src, dst)
 
-    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}, copy_contcar=True):
+    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}, copy_contcar=True, U=False):
         fstatus = self.status_file
         machine = self.machine
         sub_file = self.sub_file
@@ -990,6 +1005,8 @@ class JobSubmission(object):
                 mod_vasp = self.vasp_command_modifier
             f.write('\n')
             calc_dirs = self.calc_dirs
+            if not U:
+                xcs = [xc for xc in xcs if xc != 'pbeu']
             for xc in xcs:
                 for calc in calcs:
                     convergence = calc_dirs[xc][calc]['convergence']
@@ -1013,6 +1030,20 @@ class JobSubmission(object):
                                                       'BMIX_MAG' : 0.0001,
                                                       **opt_params})
                             obj.poscar(copy_contcar)
+                        elif (xc == 'd3') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'IVDW' : 11, **opt_params})
+                            obj.poscar(copy_contcar)
+                        elif (xc == 'rVV10') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE', **opt_params})
+                            obj.poscar(copy_contcar)
+                        elif (xc == 'pbeu') and (calc == 'opt'):
+                            ordered_els = VASPSetUp(calc_dir).ordered_els_from_poscar()
+                            obj.modify_incar(enforce={'LDAU' : 'TRUE',
+                                                      'LDAUTYPE' : 2,
+                                                      'LDAUPRINT' : 1,
+                                                      'LDAUJ' : ' '.join([str(0) for v in ordered_els]),
+                                                      'LDAUL' : ' '.join([str(U[el]['L']) for el in U]),
+                                                      'LDAUU' : ' '.join([str(U[el]['U']) for el in U])})
                         elif calc == 'sp':
                             obj = VASPSetUp(calc_dir)
                             obj.modify_incar(enforce={'IBRION' : -1,
@@ -1041,10 +1072,11 @@ class JobSubmission(object):
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs[xc]['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         elif xc == 'scan':
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         f.write('\ncd %s' % calc_dir)
                         f.write(vasp_command)
                         f.write('\ncd %s\n' % self.launch_dir)
-                        f.write('echo launched %s-%s >> %s\n' % (xc, calc, fstatus))
+                        f.write('\necho launched %s-%s >> %s\n' % (xc, calc, fstatus))
                         if postprocess[calc]:
                             f.write('\ncd %s' % calc_dir)
                             if 'bader' in postprocess[calc]:
@@ -1054,9 +1086,9 @@ class JobSubmission(object):
                                 if do_lobster:
                                     self.write_lobsterin(calc_dir)
                                     f.write(self.lobster_command)
-                            f.write('cd %s\n' % self.launch_dir)
+                            f.write('\ncd %s\n' % self.launch_dir)
                     else:
-                        f.write('echo %s-%s converged >> %s\n' % (xc, calc, fstatus))
+                        f.write('\necho %s-%s converged >> %s\n' % (xc, calc, fstatus))
                         if postprocess[calc]:
                             f.write('\ncd %s' % calc_dir)
                             if 'bader' in postprocess[calc]:
@@ -1080,7 +1112,7 @@ class JobSubmission(object):
                                 if do_lobster:
                                     self.write_lobsterin(calc_dir)
                                     f.write(self.lobster_command)
-                            f.write('cd %s\n' % self.launch_dir)
+                            f.write('\ncd %s\n' % self.launch_dir)
 
 class ErrorHandler(object):
 
