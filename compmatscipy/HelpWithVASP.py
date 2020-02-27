@@ -963,7 +963,7 @@ class JobSubmission(object):
                 if not os.path.exists(dst) or overwrite:
                     copyfile(src, dst)
 
-    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}, copy_contcar=True, U=False):
+    def write_sub(self, fresh_restart=False, sp_params={}, opt_params={}, resp_params={}, copy_contcar=True, U=False):
         fstatus = self.status_file
         machine = self.machine
         sub_file = self.sub_file
@@ -1011,6 +1011,11 @@ class JobSubmission(object):
                 for calc in calcs:
                     convergence = calc_dirs[xc][calc]['convergence']
                     calc_dir = calc_dirs[xc][calc]['dir']
+                    if calc == 'resp':
+                        if 'LELF' in resp_params:
+                            if resp_params['LELF'] == 'TRUE':
+                                if not os.path.exists(os.path.join(calc_dir, 'ELFCAR')):
+                                    convergence = False
                     cohpcar = os.path.join(calc_dir, 'COHPCAR.lobster')
                     obj = VASPSetUp(calc_dir)
                     if not convergence:
@@ -1057,15 +1062,16 @@ class JobSubmission(object):
                                 vba = VASPBasicAnalysis(old_calc_dir)
                                 if not vba.is_converged or os.path.exists(cohpcar):
                                     do_lobster = False
-                                    continue
-                                do_lobster = True
-                                old_nbands = vba.nbands
-                                resp_params['NBANDS'] = int(2*old_nbands)
-                                resp_params['ISYM'] = -1
-                            obj.modify_incar(enforce={'IBRION' : -1,
-                                                      'NSW' : 0,
-                                                      'NELM' : 1000,
-                                                      **resp_params})
+                                else:
+                                    do_lobster = True
+                                if do_lobster:
+                                    old_nbands = vba.nbands
+                                    resp_params['NBANDS'] = int(2*old_nbands)
+                                    resp_params['ISYM'] = -1
+                                    obj.modify_incar(enforce={'IBRION' : -1,
+                                                              'NSW' : 0,
+                                                              'NELM' : 1000,
+                                                              **resp_params})
                         if not eh.is_clean:
                             eh.handle_errors
                         if calc in ['sp', 'resp']:
@@ -1083,6 +1089,20 @@ class JobSubmission(object):
                                 if not os.path.exists(os.path.join(calc_dir, 'ACF.dat')):
                                     f.write(self.bader_command)
                             if 'lobster' in postprocess[calc]:
+                                old_calc_dir = calc_dirs[xc]['opt']['dir']
+                                vba = VASPBasicAnalysis(old_calc_dir)
+                                if not vba.is_converged or os.path.exists(cohpcar):
+                                    do_lobster = False
+                                else:
+                                    do_lobster = True
+                                if do_lobster:
+                                    old_nbands = vba.nbands
+                                    resp_params['NBANDS'] = int(2*old_nbands)
+                                    resp_params['ISYM'] = -1
+                                    obj.modify_incar(enforce={'IBRION' : -1,
+                                                              'NSW' : 0,
+                                                              'NELM' : 1000,
+                                                              **resp_params})
                                 if do_lobster:
                                     self.write_lobsterin(calc_dir)
                                     f.write(self.lobster_command)
@@ -1102,13 +1122,13 @@ class JobSubmission(object):
                                     do_lobster = False
                                     continue
                                 do_lobster = True
-                                old_nbands = vba.nbands
-                                resp_params['NBANDS'] = int(2*old_nbands)
-                                resp_params['ISYM'] = -1
-                                obj.modify_incar(enforce={'IBRION' : -1,
-                                                          'NSW' : 0,
-                                                          'NELM' : 1000,
-                                                          **resp_params})
+#                                old_nbands = vba.nbands
+#                                resp_params['NBANDS'] = int(2*old_nbands)
+#                                resp_params['ISYM'] = -1
+#                                obj.modify_incar(enforce={'IBRION' : -1,
+#                                                          'NSW' : 0,
+#                                                          'NELM' : 1000,
+#                                                          **resp_params})
                                 if do_lobster:
                                     self.write_lobsterin(calc_dir)
                                     f.write(self.lobster_command)
@@ -1402,7 +1422,7 @@ class VASPBasicAnalysis(object):
         outcar = os.path.join(self.calc_dir, 'OUTCAR')
         oszicar = os.path.join(self.calc_dir, 'OSZICAR')
         if not os.path.exists(outcar):
-            print('no OUTCAR file')
+#            print('no OUTCAR file')
             return False
         try:
             with open(outcar) as f:
