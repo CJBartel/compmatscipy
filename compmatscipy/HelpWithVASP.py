@@ -177,7 +177,9 @@ class VASPSetUp(object):
                               'ISYM' : 0}, 
                     additional={},
                     skip=[],
-              MP=False):
+              MP=False,
+              vdW=False,
+              U=False):
         """
         Args:
             is_geometry_opt (bool) - True if geometry is to be optimized
@@ -191,6 +193,7 @@ class VASPSetUp(object):
         MP (bool or str) - False or "Relax" to impose MP Relax parameters
         Returns:
             writes INCAR file to calc_dir; returns dictionary of INCAR settings
+        if U not False, should be in {el : {'L' : LDAUL value, 'U' : LDAUU avlue} for all els in POSCAR}
         """
         d = {}
         
@@ -236,6 +239,24 @@ class VASPSetUp(object):
             d['IBRION'] = 6
             d['LCALCEPS'] = 'TRUE'
             
+        if vdW:
+            if functional == 'pbe':
+                if vdW == 'D3':
+                    d['IVDW'] = 11
+            if functional == 'scan':
+                if vdW == 'rVV10':
+                    d['LUSE_VDW'] = 'TRUE'
+    
+        if U:
+            ordered_els = self.ordered_els_from_poscar()
+            nels = len(ordered_els)
+            d['LDAU'] = 'TRUE'
+            d['LDAUTYPE'] = 2
+            d['LDAUPRINT'] = 1
+            d['LDAUJ'] = ' '.join([str(0) for v in ordered_els])
+            d['LDAUL'] = ' '.join([str(U[el]['L']) for el in U])
+            d['LDAUU'] = ' '.join([str(U[el]['U']) for el in U])
+
         for k in standard:
             d[k] = standard[k]
         
@@ -499,7 +520,7 @@ class VASPSetUp(object):
         if not els_in_poscar:
             els_in_poscar = self.ordered_els_from_poscar()
         fpotcar = os.path.join(self.calc_dir, 'POTCAR')
-        if machine == 'eagle':
+        if machine in ['eagle', 'bridges']:
             path_to_pots = '/home/cbartel/bin/pp'
         elif machine == 'stampede2':
             path_to_pots = '/home1/06479/tg857781/bin/pp'
@@ -680,12 +701,18 @@ class JobSubmission(object):
         ---savio_debug (4 nodes, 30 minutes)
         ---savio_normal (72 hr)
 
+        bridges
+        -partitions
+        ---RM (28 cores/node)
+        ---RM-small (<= 2 nodes, <= 8 hrs)
+        
+
         """
 
     @property
     def manager(self):
         machine = self.machine
-        if machine in ['eagle', 'cori', 'stampede2', 'savio']:
+        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges']:
             return '#SBATCH'
         else:
             raise ValueError
@@ -702,6 +729,8 @@ class JobSubmission(object):
                 account = 'TG-DMR970008S'
             elif machine == 'savio':
                 account = 'fc_ceder'
+            elif machine == 'bridges':
+                account = 'mr7tu0p'
             else:
                 raise ValueError
         partition = self.partition
@@ -726,6 +755,8 @@ class JobSubmission(object):
                 tasks_per_node = 24
             else:
                 tasks_per_node = 20
+        elif machine == 'bridges':
+            tasks_per_node = 28
         priority = self.priority
         if priority == 'low':
             qos = 'low'
@@ -733,6 +764,8 @@ class JobSubmission(object):
             mpi_command = 'srun'
         elif machine == 'stampede2':
             mpi_command = 'ibrun'
+        elif machine == 'bridges':
+            mpi_command = 'mpirun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
         ntasks = int(nodes*tasks_per_node)
         nodes = None if machine != 'stampede2' else nodes
@@ -765,6 +798,8 @@ class JobSubmission(object):
             home_dir = '/global/homes/c/cbartel'
         elif machine == 'savio':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges':
+            home_dir = '/home/cbartel'
         else:
             raise ValueError
         vasp_dir = os.path.join(home_dir, 'bin', 'vasp')
@@ -777,7 +812,7 @@ class JobSubmission(object):
             return 'ibrun'
         elif machine in ['cori', 'eagle']:
             return 'srun'
-        elif machine == 'savio':
+        elif machine in ['savio', 'bridges']:
             return 'mpirun'
         else:
             raise ValueError
@@ -818,6 +853,8 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'savio':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges':
+            home_dir = '/home/cbartel'
         return '\n%s/bin/chgsum.pl AECCAR0 AECCAR2\n%s/bin/bader CHGCAR -ref CHGCAR_sum\n' % (home_dir, home_dir)
 
     def write_lobster_orbs(self, calc_dir):
@@ -835,6 +872,8 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'savio':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges':
+            home_dir = '/home/cbartel'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):
@@ -907,6 +946,15 @@ class JobSubmission(object):
         elif xc == 'scan':
             src_dir = calc_dirs['pbe'][calc]['dir']
             files = continue_files + base_files
+        elif xc == 'd3':
+            src_dir = calc_dirs['pbe'][calc]['dir']
+            files = continue_files + base_files
+        elif xc == 'rVV10':
+            src_dir = calc_dirs['scan'][calc]['dir']
+            files = continue_files + base_files
+        elif xc == 'pbeu':
+            src_dir = calc_dirs['pbe'][calc]['dir']
+            files = base_files
         dst_dir = calc_dirs[xc][calc]['dir']
         for f in files:
             src = os.path.join(src_dir, f)
@@ -915,12 +963,12 @@ class JobSubmission(object):
                 if not os.path.exists(dst) or overwrite:
                     copyfile(src, dst)
 
-    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}, copy_contcar=True):
+    def write_sub(self, fresh_restart=True, sp_params={}, opt_params={}, resp_params={}, copy_contcar=True, U=False):
         fstatus = self.status_file
         machine = self.machine
         sub_file = self.sub_file
         fsub = os.path.join(self.launch_dir, sub_file)
-        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio']
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges']
         if machine not in allowed_machines:
             raise ValueError
         line1 = '#!/bin/bash\n'
@@ -957,6 +1005,8 @@ class JobSubmission(object):
                 mod_vasp = self.vasp_command_modifier
             f.write('\n')
             calc_dirs = self.calc_dirs
+            if not U:
+                xcs = [xc for xc in xcs if xc != 'pbeu']
             for xc in xcs:
                 for calc in calcs:
                     convergence = calc_dirs[xc][calc]['convergence']
@@ -980,6 +1030,20 @@ class JobSubmission(object):
                                                       'BMIX_MAG' : 0.0001,
                                                       **opt_params})
                             obj.poscar(copy_contcar)
+                        elif (xc == 'd3') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'IVDW' : 11, **opt_params})
+                            obj.poscar(copy_contcar)
+                        elif (xc == 'rVV10') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE', **opt_params})
+                            obj.poscar(copy_contcar)
+                        elif (xc == 'pbeu') and (calc == 'opt'):
+                            ordered_els = VASPSetUp(calc_dir).ordered_els_from_poscar()
+                            obj.modify_incar(enforce={'LDAU' : 'TRUE',
+                                                      'LDAUTYPE' : 2,
+                                                      'LDAUPRINT' : 1,
+                                                      'LDAUJ' : ' '.join([str(0) for v in ordered_els]),
+                                                      'LDAUL' : ' '.join([str(U[el]['L']) for el in U]),
+                                                      'LDAUU' : ' '.join([str(U[el]['U']) for el in U])})
                         elif calc == 'sp':
                             obj = VASPSetUp(calc_dir)
                             obj.modify_incar(enforce={'IBRION' : -1,
@@ -1008,10 +1072,11 @@ class JobSubmission(object):
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs[xc]['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         elif xc == 'scan':
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         f.write('\ncd %s' % calc_dir)
                         f.write(vasp_command)
                         f.write('\ncd %s\n' % self.launch_dir)
-                        f.write('echo launched %s-%s >> %s\n' % (xc, calc, fstatus))
+                        f.write('\necho launched %s-%s >> %s\n' % (xc, calc, fstatus))
                         if postprocess[calc]:
                             f.write('\ncd %s' % calc_dir)
                             if 'bader' in postprocess[calc]:
@@ -1021,9 +1086,9 @@ class JobSubmission(object):
                                 if do_lobster:
                                     self.write_lobsterin(calc_dir)
                                     f.write(self.lobster_command)
-                            f.write('cd %s\n' % self.launch_dir)
+                            f.write('\ncd %s\n' % self.launch_dir)
                     else:
-                        f.write('echo %s-%s converged >> %s\n' % (xc, calc, fstatus))
+                        f.write('\necho %s-%s converged >> %s\n' % (xc, calc, fstatus))
                         if postprocess[calc]:
                             f.write('\ncd %s' % calc_dir)
                             if 'bader' in postprocess[calc]:
@@ -1047,7 +1112,7 @@ class JobSubmission(object):
                                 if do_lobster:
                                     self.write_lobsterin(calc_dir)
                                     f.write(self.lobster_command)
-                            f.write('cd %s\n' % self.launch_dir)
+                            f.write('\ncd %s\n' % self.launch_dir)
 
 class ErrorHandler(object):
 
