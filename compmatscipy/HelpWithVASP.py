@@ -174,7 +174,8 @@ class VASPSetUp(object):
                               'LORBIT' : 11,
                               'LASPH' : 'TRUE',
                               'ISIF' : 3,
-                              'ISYM' : 0}, 
+                              'ISYM' : 0,
+                              'NPAR' : 4}, 
                     additional={},
                     skip=[],
               MP=False,
@@ -737,7 +738,7 @@ class JobSubmission(object):
         if machine == 'cori':
             qos, constraint = partition.split('-')
             partition = None
-            if constraint == 'haswell':
+            if constraint == 'hsw':
                 tasks_per_node = 32
             elif constraint == 'knl':
                 tasks_per_node = 64
@@ -775,7 +776,7 @@ class JobSubmission(object):
             else:
                 qos = 'savio_normal'
         slurm_options = {'account' : account,
-                         'constraint' : constraint,
+                         'constraint' : constraint if constraint != 'hsw' else 'haswell',
                          'error' : err_file,
                          'job-name' : job_name,
                          'mem' : mem,
@@ -820,21 +821,26 @@ class JobSubmission(object):
     @property
     def vasp_command_modifier(self):
         machine, partition = self.machine, self.partition
-        if (machine == 'cori') and (partition == 'knl'):
-            return '-c 4 --cpu_bind=cores'
+        if (machine == 'cori') and ('knl' in partition):
+            return '-c4 --cpu_bind=cores'
+        elif (machine == 'cori') and ('hsw' in partition):
+            return '-c2 --cpu_bind=cores'
         else:
             return ''
     
     @property
     def vasp_modifier_lines(self):
         machine, partition = self.machine, self.partition
+        """
         if (machine == 'cori') and (partition == 'knl'):
             return ['\nexport OMP_PROC_BIND=true\n',
                     'export OMP_PLACES=threads\n',
                     'export OMP_NUM_THREADS=4\n']
         else:
             return ['\n']
-
+        """
+        return ['\n']
+    
     @property
     def vasp_command(self):
         modifier = self.vasp_command_modifier
@@ -855,6 +861,8 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges':
             home_dir = '/home/cbartel'
+        elif machine == 'cori':
+            home_dir = '/global/homes/c/cbartel'
         return '\n%s/bin/chgsum.pl AECCAR0 AECCAR2\n%s/bin/bader CHGCAR -ref CHGCAR_sum\n' % (home_dir, home_dir)
 
     def write_lobster_orbs(self, calc_dir):
@@ -874,6 +882,8 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges':
             home_dir = '/home/cbartel'
+        elif machine == 'cori':
+            home_dir = '/global/homes/c/cbartel'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):
