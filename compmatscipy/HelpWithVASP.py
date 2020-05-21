@@ -527,7 +527,7 @@ class VASPSetUp(object):
             path_to_pots = '/home1/06479/tg857781/bin/pp'
         elif machine == 'cori':
             path_to_pots = '/global/homes/c/cbartel/bin/pp'
-        elif machine == 'savio':
+        elif machine in ['savio', 'lrc']:
             path_to_pots = '/global/home/users/cbartel/bin/pp'
         if src == 'gga_54':
             pot_dir = 'POT_GGA_PAW_PBE_54'
@@ -707,13 +707,19 @@ class JobSubmission(object):
         ---RM (28 cores/node)
         ---RM-small (<= 2 nodes, <= 8 hrs)
         
+        lawrencium
+        -partitions
+        ---qos=condo_ceder
+        ---time=72:00:00
+        ---partition=lr5
+        ---ntasks_per_node=28
 
         """
 
     @property
     def manager(self):
         machine = self.machine
-        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges']:
+        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges', 'lrc']:
             return '#SBATCH'
         else:
             raise ValueError
@@ -732,6 +738,8 @@ class JobSubmission(object):
                 account = 'fc_ceder'
             elif machine == 'bridges':
                 account = 'mr7tu0p'
+            elif machine == 'lrc':
+                account='lr_ceder'
             else:
                 raise ValueError
         partition = self.partition
@@ -758,6 +766,8 @@ class JobSubmission(object):
                 tasks_per_node = 20
         elif machine == 'bridges':
             tasks_per_node = 28
+        elif machine == 'lrc':
+            tasks_per_node = 28
         priority = self.priority
         if priority == 'low':
             qos = 'low'
@@ -765,7 +775,7 @@ class JobSubmission(object):
             mpi_command = 'srun'
         elif machine == 'stampede2':
             mpi_command = 'ibrun'
-        elif machine == 'bridges':
+        elif machine in ['bridges', 'lrc']:
             mpi_command = 'mpirun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
         ntasks = int(nodes*tasks_per_node)
@@ -775,6 +785,8 @@ class JobSubmission(object):
                 qos = 'savio_debug'
             else:
                 qos = 'savio_normal'
+        if machine == 'lrc':
+            qos = 'condo_ceder'
         slurm_options = {'account' : account,
                          'constraint' : constraint if constraint != 'hsw' else 'haswell',
                          'error' : err_file,
@@ -801,6 +813,8 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges':
             home_dir = '/home/cbartel'
+        elif machine == 'lrc':
+            home_dir = '/global/home/users/cbartel'
         else:
             raise ValueError
         vasp_dir = os.path.join(home_dir, 'bin', 'vasp')
@@ -813,7 +827,7 @@ class JobSubmission(object):
             return 'ibrun'
         elif machine in ['cori', 'eagle']:
             return 'srun'
-        elif machine in ['savio', 'bridges']:
+        elif machine in ['savio', 'bridges', 'lrc']:
             return 'mpirun'
         else:
             raise ValueError
@@ -863,6 +877,8 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'cori':
             home_dir = '/global/homes/c/cbartel'
+        elif machine == 'lrc':
+            home_dir = '/global/home/users/cbartel'
         return '\n%s/bin/chgsum.pl AECCAR0 AECCAR2\n%s/bin/bader CHGCAR -ref CHGCAR_sum\n' % (home_dir, home_dir)
 
     def write_lobster_orbs(self, calc_dir):
@@ -884,6 +900,8 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'cori':
             home_dir = '/global/homes/c/cbartel'
+        elif machine == 'lrc':
+            home_dir = '/global/home/users/cbartel'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):
@@ -978,7 +996,7 @@ class JobSubmission(object):
         machine = self.machine
         sub_file = self.sub_file
         fsub = os.path.join(self.launch_dir, sub_file)
-        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges']
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges', 'lrc']
         if machine not in allowed_machines:
             raise ValueError
         line1 = '#!/bin/bash\n'
