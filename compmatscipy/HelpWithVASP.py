@@ -247,7 +247,8 @@ class VASPSetUp(object):
             if functional == 'scan':
                 if vdW == 'rVV10':
                     d['LUSE_VDW'] = 'TRUE'
-    
+                if vdW == 'rVV10_2':
+                    d['BPARAM'] = 15.7
         if U:
             ordered_els = self.ordered_els_from_poscar()
             nels = len(ordered_els)
@@ -962,6 +963,9 @@ class JobSubmission(object):
         elif xc == 'rVV10':
             src_dir = calc_dirs['scan'][calc]['dir']
             files = continue_files + base_files
+        elif xc == 'rVV10_2':
+            src_dir = calc_dirs['scan'][calc]['dir']
+            files = continue_files + base_files
         elif xc == 'pbeu':
             src_dir = calc_dirs['pbe'][calc]['dir']
             files = base_files
@@ -1051,6 +1055,10 @@ class JobSubmission(object):
                         elif (xc == 'rVV10') and (calc == 'opt'):
                             obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE', **opt_params})
                             obj.poscar(copy_contcar)
+                        elif (xc == 'rVV10_2') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE',
+                                                      'BPARAM' : 15.7,
+                                                      **opt_params})
                         elif (xc == 'pbeu') and (calc == 'opt'):
                             ordered_els = VASPSetUp(calc_dir).ordered_els_from_poscar()
                             obj.modify_incar(enforce={'LDAU' : 'TRUE',
