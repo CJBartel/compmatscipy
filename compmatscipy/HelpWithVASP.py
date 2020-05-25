@@ -1083,8 +1083,8 @@ class JobSubmission(object):
                                                       'LDAUTYPE' : 2,
                                                       'LDAUPRINT' : 1,
                                                       'LDAUJ' : ' '.join([str(0) for v in ordered_els]),
-                                                      'LDAUL' : ' '.join([str(U[el]['L']) for el in U]),
-                                                      'LDAUU' : ' '.join([str(U[el]['U']) for el in U])})
+                                                      'LDAUL' : ' '.join([str(U[el]['L']) for el in ordered_els]),
+                                                      'LDAUU' : ' '.join([str(U[el]['U']) for el in ordered_els])})
                         elif calc == 'sp':
                             obj = VASPSetUp(calc_dir)
                             obj.modify_incar(enforce={'IBRION' : -1,
