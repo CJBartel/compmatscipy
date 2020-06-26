@@ -174,7 +174,8 @@ class VASPSetUp(object):
                               'LORBIT' : 11,
                               'LASPH' : 'TRUE',
                               'ISIF' : 3,
-                              'ISYM' : 0}, 
+                              'ISYM' : 0,
+                              'NPAR' : 4}, 
                     additional={},
                     skip=[],
               MP=False,
@@ -246,7 +247,8 @@ class VASPSetUp(object):
             if functional == 'scan':
                 if vdW == 'rVV10':
                     d['LUSE_VDW'] = 'TRUE'
-    
+                if vdW == 'rVV10_2':
+                    d['BPARAM'] = 15.7
         if U:
             ordered_els = self.ordered_els_from_poscar()
             nels = len(ordered_els)
@@ -526,7 +528,7 @@ class VASPSetUp(object):
             path_to_pots = '/home1/06479/tg857781/bin/pp'
         elif machine == 'cori':
             path_to_pots = '/global/homes/c/cbartel/bin/pp'
-        elif machine == 'savio':
+        elif machine in ['savio', 'lrc']:
             path_to_pots = '/global/home/users/cbartel/bin/pp'
         if src == 'gga_54':
             pot_dir = 'POT_GGA_PAW_PBE_54'
@@ -706,13 +708,19 @@ class JobSubmission(object):
         ---RM (28 cores/node)
         ---RM-small (<= 2 nodes, <= 8 hrs)
         
+        lawrencium
+        -partitions
+        ---qos=condo_ceder
+        ---time=72:00:00
+        ---partition=lr5
+        ---ntasks_per_node=28
 
         """
 
     @property
     def manager(self):
         machine = self.machine
-        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges']:
+        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges', 'lrc']:
             return '#SBATCH'
         else:
             raise ValueError
@@ -731,13 +739,15 @@ class JobSubmission(object):
                 account = 'fc_ceder'
             elif machine == 'bridges':
                 account = 'mr7tu0p'
+            elif machine == 'lrc':
+                account='lr_ceder'
             else:
                 raise ValueError
         partition = self.partition
         if machine == 'cori':
             qos, constraint = partition.split('-')
             partition = None
-            if constraint == 'haswell':
+            if constraint == 'hsw':
                 tasks_per_node = 32
             elif constraint == 'knl':
                 tasks_per_node = 64
@@ -757,6 +767,8 @@ class JobSubmission(object):
                 tasks_per_node = 20
         elif machine == 'bridges':
             tasks_per_node = 28
+        elif machine == 'lrc':
+            tasks_per_node = 28
         priority = self.priority
         if priority == 'low':
             qos = 'low'
@@ -764,7 +776,7 @@ class JobSubmission(object):
             mpi_command = 'srun'
         elif machine == 'stampede2':
             mpi_command = 'ibrun'
-        elif machine == 'bridges':
+        elif machine in ['bridges', 'lrc']:
             mpi_command = 'mpirun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
         ntasks = int(nodes*tasks_per_node)
@@ -774,8 +786,10 @@ class JobSubmission(object):
                 qos = 'savio_debug'
             else:
                 qos = 'savio_normal'
+        if machine == 'lrc':
+            qos = 'condo_ceder'
         slurm_options = {'account' : account,
-                         'constraint' : constraint,
+                         'constraint' : constraint if constraint != 'hsw' else 'haswell',
                          'error' : err_file,
                          'job-name' : job_name,
                          'mem' : mem,
@@ -800,6 +814,8 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges':
             home_dir = '/home/cbartel'
+        elif machine == 'lrc':
+            home_dir = '/global/home/users/cbartel'
         else:
             raise ValueError
         vasp_dir = os.path.join(home_dir, 'bin', 'vasp')
@@ -812,7 +828,7 @@ class JobSubmission(object):
             return 'ibrun'
         elif machine in ['cori', 'eagle']:
             return 'srun'
-        elif machine in ['savio', 'bridges']:
+        elif machine in ['savio', 'bridges', 'lrc']:
             return 'mpirun'
         else:
             raise ValueError
@@ -820,21 +836,26 @@ class JobSubmission(object):
     @property
     def vasp_command_modifier(self):
         machine, partition = self.machine, self.partition
-        if (machine == 'cori') and (partition == 'knl'):
-            return '-c 4 --cpu_bind=cores'
+        if (machine == 'cori') and ('knl' in partition):
+            return '-c4 --cpu_bind=cores'
+        elif (machine == 'cori') and ('hsw' in partition):
+            return '-c2 --cpu_bind=cores'
         else:
             return ''
     
     @property
     def vasp_modifier_lines(self):
         machine, partition = self.machine, self.partition
+        """
         if (machine == 'cori') and (partition == 'knl'):
             return ['\nexport OMP_PROC_BIND=true\n',
                     'export OMP_PLACES=threads\n',
                     'export OMP_NUM_THREADS=4\n']
         else:
             return ['\n']
-
+        """
+        return ['\n']
+    
     @property
     def vasp_command(self):
         modifier = self.vasp_command_modifier
@@ -855,6 +876,10 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges':
             home_dir = '/home/cbartel'
+        elif machine == 'cori':
+            home_dir = '/global/homes/c/cbartel'
+        elif machine == 'lrc':
+            home_dir = '/global/home/users/cbartel'
         return '\n%s/bin/chgsum.pl AECCAR0 AECCAR2\n%s/bin/bader CHGCAR -ref CHGCAR_sum\n' % (home_dir, home_dir)
 
     def write_lobster_orbs(self, calc_dir):
@@ -874,6 +899,10 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges':
             home_dir = '/home/cbartel'
+        elif machine == 'cori':
+            home_dir = '/global/homes/c/cbartel'
+        elif machine == 'lrc':
+            home_dir = '/global/home/users/cbartel'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):
@@ -952,6 +981,9 @@ class JobSubmission(object):
         elif xc == 'rVV10':
             src_dir = calc_dirs['scan'][calc]['dir']
             files = continue_files + base_files
+        elif xc == 'rVV10_2':
+            src_dir = calc_dirs['scan'][calc]['dir']
+            files = continue_files + base_files
         elif xc == 'pbeu':
             src_dir = calc_dirs['pbe'][calc]['dir']
             files = base_files
@@ -968,7 +1000,7 @@ class JobSubmission(object):
         machine = self.machine
         sub_file = self.sub_file
         fsub = os.path.join(self.launch_dir, sub_file)
-        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges']
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges', 'lrc']
         if machine not in allowed_machines:
             raise ValueError
         line1 = '#!/bin/bash\n'
@@ -1041,14 +1073,18 @@ class JobSubmission(object):
                         elif (xc == 'rVV10') and (calc == 'opt'):
                             obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE', **opt_params})
                             obj.poscar(copy_contcar)
+                        elif (xc == 'rVV10_2') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE',
+                                                      'BPARAM' : 15.7,
+                                                      **opt_params})
                         elif (xc == 'pbeu') and (calc == 'opt'):
                             ordered_els = VASPSetUp(calc_dir).ordered_els_from_poscar()
                             obj.modify_incar(enforce={'LDAU' : 'TRUE',
                                                       'LDAUTYPE' : 2,
                                                       'LDAUPRINT' : 1,
                                                       'LDAUJ' : ' '.join([str(0) for v in ordered_els]),
-                                                      'LDAUL' : ' '.join([str(U[el]['L']) for el in U]),
-                                                      'LDAUU' : ' '.join([str(U[el]['U']) for el in U])})
+                                                      'LDAUL' : ' '.join([str(U[el]['L']) for el in ordered_els]),
+                                                      'LDAUU' : ' '.join([str(U[el]['U']) for el in ordered_els])})
                         elif calc == 'sp':
                             obj = VASPSetUp(calc_dir)
                             obj.modify_incar(enforce={'IBRION' : -1,
