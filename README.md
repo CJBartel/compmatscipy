@@ -9,10 +9,10 @@ or have helped complete those projects
 
 ## Please consider citing:
 
-#### for PerovskiteStability: https://arxiv.org/abs/1801.07700 (Sci. Adv. coming soon)
+#### for PerovskiteStability: Bartel et al. Science Advances 5, 2, eaav0693 (2020) (https://doi.org/10.1126/sciadv.aav0693)
 
-#### for PredictGibbsEnergy: Nature communications 9 (1), 4168 (2018) https://doi.org/10.1038/s41467-018-06682-4
+#### for PredictGibbsEnergy: Bartel et al. Nature Communications 9 (1), 4168 (2018) (https://doi.org/10.1038/s41467-018-06682-4)
 
-#### for HelpWithVASP (COHP analysis): https://arxiv.org/abs/1809.09202
+#### for HelpWithVASP (COHP analysis): Sun et al. Nature Materials 18 (7), 732 (2019) (https://doi.org/10.1038/s41563-019-0396-2)
 
-#### for HullAnalysis: npj Computational Materials 5, 4 (2019) https://doi.org/10.1038/s41524-018-0143-2
+#### for HullAnalysis: Bartel et al. npj Computational Materials 5, 4 (2019) (https://doi.org/10.1038/s41524-018-0143-2)
