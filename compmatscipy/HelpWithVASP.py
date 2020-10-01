@@ -710,6 +710,9 @@ class JobSubmission(object):
         
         lawrencium
         -partitions
+        ---lr5-free --> partition=lr5, qos=condo_ceder, account=lr_ceder
+        ---lr5-pc --> partition=lr5, qos=lr_normal, account=pc_ceder
+        ---lr5-ac --> partition=lr5, qos=lr_normal, account=ac_ceder
         ---qos=condo_ceder
         ---time=72:00:00
         ---partition=lr5
@@ -787,7 +790,19 @@ class JobSubmission(object):
             else:
                 qos = 'savio_normal'
         if machine == 'lrc':
-            qos = 'condo_ceder'
+            if not partition or (partition == 'lr5-free') or (partition == 'lr5'):
+                account = 'lr_ceder'
+                qos = 'condo_ceder'
+                partition = 'lr5'
+            elif partition == 'lr5-pc':
+                account = 'pc_ceder'
+                qos = 'lr_normal'
+                partition = 'lr5'
+            elif partition == 'lr5-ac':
+                account = 'ac_ceder'
+                qos = 'lr_normal'
+                partitionn = 'lr5'
+                
         slurm_options = {'account' : account,
                          'constraint' : constraint if constraint != 'hsw' else 'haswell',
                          'error' : err_file,
