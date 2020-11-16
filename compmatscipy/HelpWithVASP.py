@@ -801,7 +801,7 @@ class JobSubmission(object):
             elif partition == 'lr5-ac':
                 account = 'ac_ceder'
                 qos = 'lr_normal'
-                partitionn = 'lr5'
+                partition = 'lr5'
                 
         slurm_options = {'account' : account,
                          'constraint' : constraint if constraint != 'hsw' else 'haswell',
