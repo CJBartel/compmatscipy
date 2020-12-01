@@ -733,7 +733,7 @@ class JobSubmission(object):
         account, machine = self.account, self.machine
         if not account:
             if machine == 'eagle':
-                account = 'sngmd'
+                account = 'synpred'
             elif machine == 'cori':
                 account = 'm1268'
             elif machine == 'stampede2':
