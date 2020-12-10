@@ -5,6 +5,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 from scipy.stats import linregress
 from compmatscipy.HelpWithVASP import VASPDOSAnalysis, ProcessDOS, VASPBasicAnalysis, LOBSTERAnalysis, DOEAnalysis
 from compmatscipy.CompAnalyzer import CompAnalyzer
+import os
 
 
 def tableau_colors():
@@ -152,6 +153,13 @@ def dos(calc_dir,
                 tag = '-'.join([element, spin, orbital])
                 color = colors_and_labels[tag]['color']
                 label = colors_and_labels[tag]['label']
+                if doscar == 'DOSCAR':
+                    if not os.path.exists(os.path.join(calc_dir, 'DOS.json')):
+                        tmp = VASPDOSAnalysis(calc_dir, doscar=doscar).detailed_dos_dict()
+                elif doscar == 'DOSCAR.lobster':
+                    if not os.path.exists(os.path.join(calc_dir, 'lobDOS.json')):
+                        tmp = VASPDOSAnalysis(calc_dir, doscar=doscar).detailed_dos_dict()
+                                        
                 d = VASPDOSAnalysis(calc_dir, doscar=doscar).energies_to_populations(element=element,
                                                                       orbital=orbital,
                                                                       spin=spin)

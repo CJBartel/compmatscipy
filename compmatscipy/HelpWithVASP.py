@@ -180,7 +180,8 @@ class VASPSetUp(object):
                     skip=[],
               MP=False,
               vdW=False,
-              U=False):
+              U=False,
+              neb=False):
         """
         Args:
             is_geometry_opt (bool) - True if geometry is to be optimized
@@ -297,7 +298,25 @@ class VASPSetUp(object):
                 d['ALGO'] = 'All'
                 d['ADDGRID'] = 'TRUE'
                 d['ISMEAR'] = 0
-
+        
+        if neb:
+            defaults = {'EDIFFG' : -0.1,
+                        'IBRION' : 3,
+                        'ISIF' : 2,
+                        'IMAGES' : 5,
+                        'NELMIN' : 4,
+                        'ICHAIN' : 0,
+                        'IOPT' : 7,
+                        'LCLIMB' : 'TRUE',
+                        'LCHARG' : 'FALSE',
+                        'POTIM' : 0,
+                        'SPRING' : -5,
+                        }
+            if isinstance(neb, bool):
+                neb = {}
+            for param in defaults:
+                d[param] = defaults[param] if param not in neb else neb[param]
+                
         for k in additional:
             d[k] = additional[k]
 
@@ -403,7 +422,7 @@ class VASPSetUp(object):
         scaled POSCAR
         """
         poscar = self.poscar()
-        old_poscar = os.path.join(calc_dir, 'unscaled_POSCAR')
+        old_poscar = os.path.join(self.calc_dir, 'unscaled_POSCAR')
         copyfile(poscar, old_poscar)
         with open(old_poscar) as old:
             count = 0
@@ -1052,11 +1071,13 @@ class JobSubmission(object):
                 if option:
                     option = str(option)
                     f.write('%s --%s=%s\n' % (manager, tag, option))
+            """
             if not vasp:
                 if not command:
                     raise ValueError
                 f.write('\n%s\n' % command)
                 return
+            """
             if (machine == 'cori') and ('knl' in self.partition):
                 lines_to_add = self.vasp_modifier_lines
                 for l in lines_to_add:
@@ -1087,6 +1108,318 @@ class JobSubmission(object):
                         if (xc == 'pbe') and (calc == 'opt'):
                             obj.modify_incar(enforce=opt_params)
                             obj.poscar(copy_contcar)
+                        elif (xc == 'scan') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'METAGGA' : 'SCAN',
+                                                      'ALGO' : 'All',
+                                                      'ADDGRID' : 'TRUE',
+                                                      'ISMEAR' : 0,
+                                                      'AMIX' : 0.1,
+                                                      'BMIX' : 0.0001,
+                                                      'AMIX_MAG' : 0.2,
+                                                      'BMIX_MAG' : 0.0001,
+                                                      **opt_params})
+                            obj.poscar(copy_contcar)
+                        elif (xc == 'd3') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'IVDW' : 11, **opt_params})
+                            obj.poscar(copy_contcar)
+                        elif (xc == 'rVV10') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE', **opt_params})
+                            obj.poscar(copy_contcar)
+                        elif (xc == 'rVV10_2') and (calc == 'opt'):
+                            obj.modify_incar(enforce={'LUSE_VDW' : 'TRUE',
+                                                      'BPARAM' : 15.7,
+                                                      **opt_params})
+                        elif (xc == 'pbeu') and (calc == 'opt'):
+                            ordered_els = VASPSetUp(calc_dir).ordered_els_from_poscar()
+                            obj.modify_incar(enforce={'LDAU' : 'TRUE',
+                                                      'LDAUTYPE' : 2,
+                                                      'LDAUPRINT' : 1,
+                                                      'LDAUJ' : ' '.join([str(0) for v in ordered_els]),
+                                                      'LDAUL' : ' '.join([str(U[el]['L']) for el in ordered_els]),
+                                                      'LDAUU' : ' '.join([str(U[el]['U']) for el in ordered_els])})
+                        elif xc == 'scan_sppbe':
+                            obj.modify_incar(enforce={'GGA' : 'PE',
+                                                      'ALGO' : 'All'})
+                        elif xc == 'scan_sphse':
+                            obj.modify_incar(enforce={'GGA' : 'PE',
+                                                      'LHFCALC' : 'TRUE',
+                                                      'ALGO' : 'Damped',
+                                                      'TIME' : 0.1,
+                                                      'HFSCREEN' : 0.2,
+                                                      'IBRION' : -1,
+                                                      'NSW' : 0,
+                                                      'NELM' : 1000,
+                                                      'KPAR' : 2,
+                                                      **sp_params})
+                            
+                        elif calc == 'sp':
+                            obj = VASPSetUp(calc_dir)
+                            obj.modify_incar(enforce={'IBRION' : -1,
+                                                      'NSW' : 0,
+                                                      'NELM' : 1000,
+                                                      **sp_params})
+                        elif calc == 'resp':
+                            obj = VASPSetUp(calc_dir)
+                            if 'lobster' in postprocess[calc]:
+                                old_calc_dir = calc_dirs[xc]['opt']['dir']
+                                vba = VASPBasicAnalysis(old_calc_dir)
+                                if not vba.is_converged or os.path.exists(cohpcar):
+                                    do_lobster = False
+                                else:
+                                    do_lobster = True
+                                if do_lobster:
+                                    old_nbands = vba.nbands
+                                    resp_params['NBANDS'] = int(2*old_nbands)
+                                    resp_params['ISYM'] = -1
+                                    obj.modify_incar(enforce={'IBRION' : -1,
+                                                              'NSW' : 0,
+                                                              'NELM' : 1000,
+                                                              **resp_params})
+                        if not eh.is_clean:
+                            eh.handle_errors
+                        if calc in ['sp', 'resp']:
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs[xc]['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
+                        elif xc == 'scan':
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
+                        elif xc == 'scan_sphse':
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['scan_sppbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
+                        elif xc == 'scan_sppbe':
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['scan']['sp']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
+                        if calc != 'neb':
+                            f.write('\ncd %s' % calc_dir)
+                        f.write(vasp_command)
+                        f.write('\ncd %s\n' % self.launch_dir)
+                        f.write('\necho launched %s-%s >> %s\n' % (xc, calc, fstatus))
+                        if postprocess[calc]:
+                            f.write('\ncd %s' % calc_dir)
+                            if 'bader' in postprocess[calc]:
+                                if not os.path.exists(os.path.join(calc_dir, 'ACF.dat')):
+                                    f.write(self.bader_command)
+                            if 'lobster' in postprocess[calc]:
+                                old_calc_dir = calc_dirs[xc]['opt']['dir']
+                                vba = VASPBasicAnalysis(old_calc_dir)
+                                if not vba.is_converged or os.path.exists(cohpcar):
+                                    do_lobster = False
+                                else:
+                                    do_lobster = True
+                                if do_lobster:
+                                    old_nbands = vba.nbands
+                                    resp_params['NBANDS'] = int(2*old_nbands)
+                                    resp_params['ISYM'] = -1
+                                    obj.modify_incar(enforce={'IBRION' : -1,
+                                                              'NSW' : 0,
+                                                              'NELM' : 1000,
+                                                              **resp_params})
+                                if do_lobster:
+                                    self.write_lobsterin(calc_dir)
+                                    f.write(self.lobster_command)
+                            f.write('\ncd %s\n' % self.launch_dir)
+                    else:
+                        f.write('\necho %s-%s converged >> %s\n' % (xc, calc, fstatus))
+                        if postprocess[calc]:
+                            f.write('\ncd %s' % calc_dir)
+                            if 'bader' in postprocess[calc]:
+                                if not os.path.exists(os.path.join(calc_dir, 'ACF.dat')):
+                                    f.write(self.bader_command)
+                            if 'lobster' in postprocess[calc]:
+                                obj = VASPSetUp(calc_dir)
+                                old_calc_dir = calc_dirs[xc]['opt']['dir']
+                                vba = VASPBasicAnalysis(old_calc_dir)
+                                if not vba.is_converged or os.path.exists(cohpcar):
+                                    do_lobster = False
+                                    continue
+                                do_lobster = True
+#                                old_nbands = vba.nbands
+#                                resp_params['NBANDS'] = int(2*old_nbands)
+#                                resp_params['ISYM'] = -1
+#                                obj.modify_incar(enforce={'IBRION' : -1,
+#                                                          'NSW' : 0,
+#                                                          'NELM' : 1000,
+#                                                          **resp_params})
+                                if do_lobster:
+                                    self.write_lobsterin(calc_dir)
+                                    f.write(self.lobster_command)
+                            f.write('\ncd %s\n' % self.launch_dir)
+
+class NEBSubmission(object):
+    
+    def __init__(self, launch_dir, machine,
+                 sub_file='sub.sh',
+                 err_file='log.e',
+                 out_file='log.o',
+                 job_name='cb_job',
+                 nodes_for_endpts=2,
+                 nodes_per_img=2,
+                 walltime='48:00:00',
+                 account=None,
+                 partition=None,
+                 priority=None,
+                 mem=None,
+                 vasp='vasp_std',
+                 xcs=['pbe'],
+                 calcs=['initial_ISIF3',
+                        'initial_ISIF2',
+                        'final_ISIF3',
+                        'final_ISIF2',
+                        'ts-10-5'],
+                 command=False,
+                 status_file='status.o',
+                 postprocess={},
+                 min_ts_tol=10,
+                 max_ts_tol=1,
+                 min_ts_imgs=5,
+                 max_ts_imgs=9):
+        self.launch_dir = launch_dir
+        self.machine = machine
+        self.sub_file = sub_file
+        self.err_file = err_file
+        self.out_file = out_file
+        self.job_name = job_name
+        self.nodes_for_endpts = nodes_for_endpts
+        self.nodes_per_img = nodes_per_img
+        self.walltime = walltime
+        self.account = account
+        self.partition = partition
+        self.priority = priority
+        self.mem = mem
+        self.vasp = vasp
+        self.xcs = xcs
+        self.command = command
+        self.status_file = status_file
+        self.calcs = calcs
+        self.postprocess = postprocess
+        self.job_submission = JobSubmission(launch_dir, machine)
+        js = self.job_submission
+        self.manager = js.manager
+        self.options = js.options
+        self.vasp_dir = js.vasp_dir
+        self.mpi_command = js.mpi_command
+        self.vasp_command_modifier = js.vasp_command_modifier
+        self.vasp_modifier_lines = js.vasp_modifier_lines
+        self.vasp_command = js.vasp_command
+        self.min_ts_tol = min_ts_tol
+        self.min_ts_imgs = min_ts_imgs
+        self.max_ts_tol = max_ts_tol
+        self.max_ts_imgs = max_ts_imgs
+        
+    @property
+    def calc_dirs(self):
+        calcs = self.calcs
+        launch_dir = self.launch_dir
+        xcs = self.xcs
+        info = {xc : {calc : {'dir' : os.path.join(launch_dir, xc, calc)} for calc in calcs} for xc in xcs}
+        for xc in xcs:
+            xc_dir = os.path.join(launch_dir, xc)
+            if not os.path.exists(xc_dir):
+                os.mkdir(xc_dir)
+            for calc in calcs:
+                calc_dir = os.path.join(xc_dir, calc)
+                if not os.path.exists(calc_dir):
+                    os.mkdir(calc_dir)
+                outcar = os.path.join(calc_dir, 'OUTCAR')
+                convergence_dir = calc_dir if calc != 'ts' else os.path.join(calc_dir, '01')
+                convergence = VASPBasicAnalysis(convergence_dir).is_converged
+                info[xc][calc]['convergence'] = convergence
+            if not info[xc]['initial_ISIF3']['convergence'] or not info[xc]['final_ISIF3']['convergence']:
+                    info[xc]['initial_ISIF2']['convergence'] = False
+                    info[xc]['final_ISIF2']['convergence'] = False
+            if not info[xc]['initial_ISIF2']['convergence'] or not info[xc]['final_ISIF2']['convergence']:
+                for calc in calcs:
+                    if 'ts' in calc:
+                        info[xc][calc]['convergence'] = False
+        return info
+    
+    def copy_files(self, xc, calc, overwrite=False):
+        calc_dirs = self.calc_dirs
+        base_files = ['KPOINTS', 'INCAR', 'POTCAR', 'POSCAR']
+        continue_files = ['WAVECAR', 'CONTCAR']
+        if 'ISIF2' in calc:
+            src_dir = calc_dirs[xc][calc.replace('2', '3')]['dir']
+            files = continue_files + base_files
+            src_dir = calc_dirs[xc]['opt']['dir']
+        if 'ts' in calc:
+            tol, nimgs = calc.split('-')[1:]
+            src_dir = calc_dirs[xc]['initial_ISIF2']['dir']
+            files = base_files
+        dst_dir = calc_dirs[xc][calc]['dir']
+        for f in files:
+            src = os.path.join(src_dir, f)
+            dst = os.path.join(dst_dir, f)
+            if os.path.exists(src):
+                if not os.path.exists(dst) or overwrite:
+                    copyfile(src, dst)
+                    
+    def write_sub(self, fresh_restart=False, endpt_params={}, neb_params={}, copy_contcar=True):
+        fstatus = self.status_file
+        machine = self.machine
+        sub_file = self.sub_file
+        fsub = os.path.join(self.launch_dir, sub_file)
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges', 'lrc']
+        if machine not in allowed_machines:
+            raise ValueError
+        line1 = '#!/bin/bash\n'
+        options = self.options
+        manager = self.manager
+        vasp_command = self.vasp_command
+        vasp = self.vasp
+        xcs = self.xcs
+        calcs = self.calcs
+        with open(fsub, 'w') as f:
+            f.write(line1)
+            for tag in options:
+                option = options[tag]
+                if option:
+                    option = str(option)
+                    f.write('%s --%s=%s\n' % (manager, tag, option))
+            if (machine == 'cori') and ('knl' in self.partition):
+                lines_to_add = self.vasp_modifier_lines
+                for l in lines_to_add:
+                    f.write(l)
+                mod_vasp = self.vasp_command_modifier
+            f.write('\n')
+            calc_dirs = self.calc_dirs
+            for xc in xcs:
+                for calc in calcs:
+
+                    convergence = calc_dirs[xc][calc]['convergence']
+                    calc_dir = calc_dirs[xc][calc]['dir']
+                    obj = VASPSetUp(calc_dir)
+                    if not convergence:
+                        eh = ErrorHandler(calc_dir)
+                        self.copy_files(xc, calc, overwrite=fresh_restart)
+                        if 'ISIF3' in calc:
+                            obj.modify_incar(enforce=endpt_params)
+                            obj.poscar(copy_contcar)
+                        elif 'ISIF2' in calc:
+                            obj.modify_incar(enforce={**endpt_params, **{'ISIF' : 2}})
+                            obj.poscar(copy_contcar)
+                            initial_isif3 = calc_dirs[xc]['initial_ISIF3']['dir']
+                            final_isif3 = calc_dirs[xc]['final_ISIF3']['dir']
+                            E_initial, E_final = VASPBasicAnalysis(initial_isif3).Etot, VASPBasicAnalysis(final_isif3).Etot
+                            if E_initial and E_final:
+                                lattice_src_dir = initial_isif3 if E_initial <= E_final else final_isif3
+                            else:
+                                continue
+                            fpos_lattice = os.path.join(lattice_src_dir, 'CONTCAR')
+                            fpos = os.path.join(calc_dir, 'POSCAR')
+                            fpos_coords = os.path.join(calc_dir, 'old_POSCAR')
+                            copyfile(fpos, fpos_coords)
+                            with open(fpos, 'w') as f:
+                                with open(fpos_lattice) as lat:
+                                    count = 0
+                                    for line in lat:
+                                        count += 1
+                                        if count <= 8:
+                                            f.write(line)
+                                with open(fpos_coords) as coords:
+                                    count = 0
+                                    for line in coords:
+                                        count += 1
+                                        if count > 8:
+                                            f.write(line)
+                            ### PICK UP HERE!
+
                         elif (xc == 'scan') and (calc == 'opt'):
                             obj.modify_incar(enforce={'METAGGA' : 'SCAN',
                                                       'ALGO' : 'All',
