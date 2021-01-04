@@ -94,8 +94,8 @@ class ThermoEq(object):
         R = 0.008314 # kJ/mol/K
         sorted_formulas = self._sorted_formulas
         formulas = [f for f in sorted_formulas if f not in self.excluded]
-        n0 = [input_data[formula]['amt']+1e-4 for formula in formulas]
-        bounds = [(1e-8, 1e1*np.sum(n0)) for i in n0]
+        n0 = [input_data[formula]['amt'] for formula in formulas]
+        bounds = [(0, 1e1*np.sum(n0)) for i in n0]
         def func(nj):
             nj = np.array(nj)
             Enj = np.sum([nj[i] for i in range(len(nj)) if input_data[formulas[i]]['phase'] == 'nonsolid'])
@@ -148,16 +148,16 @@ def main():
                        'amt' : 0,
                        'dG' : -3},
             'Al1N1' : {'phase' : 'solid',
-                       'amt' : 0,
+                       'amt' : 3,
                        'dG' : -2},
             'Al1' : {'phase' : 'solid',
-                     'amt' : 2,
+                     'amt' : 6,
                      'dG' : 0},
             'O2' : {'phase' : 'nonsolid',
-                     'amt' : 1.5,
+                     'amt' : 2.5,
                      'dG' : 0}, }   
                      
-    obj = ThermoEq(data, 1000, ['Al2O3'])
+    obj = ThermoEq(data, 1000, [])
     print(obj.results)
     return obj
 
