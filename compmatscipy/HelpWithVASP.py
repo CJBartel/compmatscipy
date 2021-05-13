@@ -1009,7 +1009,7 @@ class JobSubmission(object):
         elif xc == 'pbe':
             src_dir = self.launch_dir
             files = base_files
-        elif xc == 'scan':
+        elif xc in ['scan', 'r2scan']:
             src_dir = calc_dirs['pbe'][calc]['dir']
             files = continue_files + base_files
         elif xc == 'd3':
