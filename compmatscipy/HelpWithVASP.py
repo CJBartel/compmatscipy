@@ -212,6 +212,8 @@ class VASPSetUp(object):
             d['GGA'] = 'PE'
         elif functional == 'scan':
             d['METAGGA'] = 'SCAN'
+        elif functional == 'r2scan':
+            d['METAGGA'] = 'R2SCAN'
         elif functional == 'rtpss':
             d['METAGGA'] = 'RTPSS'
         elif functional == 'hse':
@@ -852,7 +854,8 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         else:
             raise ValueError
-        vasp_dir = os.path.join(home_dir, 'bin', 'vasp')
+        which_vasp = 'vasp' if 'r2scan' not in self.xcs else 'vasp6'
+        vasp_dir = os.path.join(home_dir, 'bin', which_vasp)
         return vasp_dir
 
     @property
@@ -1108,8 +1111,8 @@ class JobSubmission(object):
                         if (xc == 'pbe') and (calc == 'opt'):
                             obj.modify_incar(enforce=opt_params)
                             obj.poscar(copy_contcar)
-                        elif (xc == 'scan') and (calc == 'opt'):
-                            obj.modify_incar(enforce={'METAGGA' : 'SCAN',
+                        elif (xc in ['scan',  'r2scan']) and (calc == 'opt'):
+                            obj.modify_incar(enforce={'METAGGA' : xc.upper(),
                                                       'ALGO' : 'All',
                                                       'ADDGRID' : 'TRUE',
                                                       'ISMEAR' : 0,
@@ -1179,7 +1182,7 @@ class JobSubmission(object):
                             eh.handle_errors
                         if calc in ['sp', 'resp']:
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs[xc]['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
-                        elif xc == 'scan':
+                        elif xc in ['scan', 'r2scan']:
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         elif xc == 'scan_sphse':
