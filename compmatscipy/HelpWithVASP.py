@@ -551,6 +551,8 @@ class VASPSetUp(object):
             path_to_pots = '/global/homes/c/cbartel/bin/pp'
         elif machine in ['savio', 'lrc']:
             path_to_pots = '/global/home/users/cbartel/bin/pp'
+        elif machine == 'bridges2':
+            path_to_pots = '/jet/home/cbartel/bin/pp'
         if src == 'gga_54':
             pot_dir = 'POT_GGA_PAW_PBE_54'
         elif src == 'gga_52':
@@ -739,6 +741,11 @@ class JobSubmission(object):
         ---partition=lr5
         ---ntasks_per_node=28
 
+        bridges2
+        -partitions
+        ---RM (128 cores per node); 48 hr
+        
+
         """
 
     @property
@@ -763,6 +770,8 @@ class JobSubmission(object):
                 account = 'fc_ceder'
             elif machine == 'bridges':
                 account = 'mr7tu0p'
+            elif machine == 'bridges2':
+                account = 'dmr060032p'
             elif machine == 'lrc':
                 account='lr_ceder'
             else:
@@ -791,6 +800,8 @@ class JobSubmission(object):
                 tasks_per_node = 20
         elif machine == 'bridges':
             tasks_per_node = 28
+        elif machine == 'bridges2':
+            tasks_per_node = 128
         elif machine == 'lrc':
             tasks_per_node = 28
         priority = self.priority
@@ -823,6 +834,8 @@ class JobSubmission(object):
                 account = 'ac_ceder'
                 qos = 'lr_normal'
                 partition = 'lr5'
+        if (machine == 'bridges2') and not partition:
+            partition = 'RM'
                 
         slurm_options = {'account' : account,
                          'constraint' : constraint if constraint != 'hsw' else 'haswell',
@@ -852,9 +865,14 @@ class JobSubmission(object):
             home_dir = '/home/cbartel'
         elif machine == 'lrc':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges2':
+            home_dir = '/jet/home/cbartel'
         else:
             raise ValueError
-        which_vasp = 'vasp' if 'r2scan' not in self.xcs else 'vasp6'
+        if machine != 'bridges2':
+            which_vasp = 'vasp' if 'r2scan' not in self.xcs else 'vasp6'
+        else:
+            which_vasp = 'vasp6'
         vasp_dir = os.path.join(home_dir, 'bin', which_vasp)
         return vasp_dir
 
@@ -865,7 +883,7 @@ class JobSubmission(object):
             return 'ibrun'
         elif machine in ['cori', 'eagle']:
             return 'srun'
-        elif machine in ['savio', 'bridges', 'lrc']:
+        elif machine in ['savio', 'bridges', 'lrc', 'bridges2']:
             return 'mpirun'
         else:
             raise ValueError
@@ -913,6 +931,8 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges':
             home_dir = '/home/cbartel'
+        elif machine == 'bridges':
+            home_dir = '/jet/home/cbartel'
         elif machine == 'cori':
             home_dir = '/global/homes/c/cbartel'
         elif machine == 'lrc':
@@ -940,6 +960,8 @@ class JobSubmission(object):
             home_dir = '/global/homes/c/cbartel'
         elif machine == 'lrc':
             home_dir = '/global/home/users/cbartel'
+        elif machine == 'bridges2':
+            home_dir = '/jet/home/cbartel'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):
