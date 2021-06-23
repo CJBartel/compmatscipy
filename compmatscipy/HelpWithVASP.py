@@ -816,7 +816,7 @@ class JobSubmission(object):
             mpi_command = 'mpirun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
         ntasks = int(nodes*tasks_per_node)
-        nodes = None if machine != 'stampede2' else nodes
+        nodes = None if machine not in ['stampede2', 'cori'] else nodes
         if machine == 'savio':
             if (':' not in walltime) or (walltime.split(':')[1] == '30'):
                 qos = 'savio_debug'
@@ -893,23 +893,22 @@ class JobSubmission(object):
     def vasp_command_modifier(self):
         machine, partition = self.machine, self.partition
         if (machine == 'cori') and ('knl' in partition):
-            return '-c4 --cpu_bind=cores'
+            return '-c 4 --cpu_bind=cores'
         elif (machine == 'cori') and ('hsw' in partition):
-            return '-c2 --cpu_bind=cores'
+            return '-c 2 --cpu_bind=cores'
         else:
             return ''
     
     @property
     def vasp_modifier_lines(self):
         machine, partition = self.machine, self.partition
-        """
-        if (machine == 'cori') and (partition == 'knl'):
+        
+        if (machine == 'cori'):
             return ['\nexport OMP_PROC_BIND=true\n',
                     'export OMP_PLACES=threads\n',
-                    'export OMP_NUM_THREADS=4\n']
+                    'export OMP_NUM_THREADS=1\n']
         else:
             return ['\n']
-        """
         return ['\n']
     
     @property
