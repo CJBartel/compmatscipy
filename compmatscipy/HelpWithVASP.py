@@ -270,16 +270,23 @@ class VASPSetUp(object):
             ordered_els = self.ordered_els_from_poscar()
             all_mag_els = magnetic_els()
             nmagnetic_els = len([el for el in ordered_els if el in all_mag_els])
+            
             if nmagnetic_els == 0:
                 d['ISPIN'] = 1
                 if 'MAGMOM' not in skip:
                     skip.append('MAGMOM')
+                should_print_magmom = False
             else:
+                should_print_magmom = True
                 if 'ISPIN' not in d:
                     d['ISPIN'] = 2
                 if 'MAGMOM' not in d:
                     magmom = make_magmom(ordered_els, self.els_to_idxs, spin=5, config=mag)            
                     d['MAGMOM'] = magmom
+                    if 'MAGMOM' in skip:
+                        skip.remove('MAGMOM')
+        else:
+            should_print_magmom = False
 
         fincar = os.path.join(self.calc_dir, 'INCAR')
         if MP == 'Relax':
@@ -322,7 +329,11 @@ class VASPSetUp(object):
                 
         for k in additional:
             d[k] = additional[k]
-
+        
+        if should_print_magmom:
+            print('MAGMOM --> %s' % d['MAGMOM'])
+        for k in skip:
+            print('... skipping %s' % k)
         with open(fincar, 'w') as f:
             for k in d:
                 if k not in skip:
@@ -1055,8 +1066,20 @@ class JobSubmission(object):
             incar_dst = os.path.join(incar_dst_dir, 'INCAR')
             if os.path.exists(incar_src):
                 copyfile(incar_src, incar_dst)
+        elif xc == 'r2scan_sppbe':
+            src_dir = calc_dirs['r2scan']['sp']['dir']
+            files = ['KPOINTS', 'POSCAR', 'POTCAR']
+            incar_src_dir = calc_dirs['pbe']['sp']['dir']
+            incar_dst_dir = calc_dirs[xc][calc]['dir']
+            incar_src = os.path.join(incar_src_dir, 'INCAR')
+            incar_dst = os.path.join(incar_dst_dir, 'INCAR')
+            if os.path.exists(incar_src):
+                copyfile(incar_src, incar_dst)
         elif xc == 'scan_sphse':
             src_dir = calc_dirs['scan_sppbe']['opt']['dir']
+            files = continue_files + base_files
+        elif xc == 'r2scan_sphse':
+            src_dir = calc_dirs['r2scan_sppbe']['opt']['dir']
             files = continue_files + base_files
         dst_dir = calc_dirs[xc][calc]['dir']
         for f in files:
@@ -1114,9 +1137,9 @@ class JobSubmission(object):
                 xcs = [xc for xc in xcs if xc != 'pbeu']
             for xc in xcs:
                 for calc in calcs:
-                    if (xc == 'scan_sphse') and (calc == 'sp'):
+                    if ((xc == 'scan_sphse') or (xc == 'r2scan_sphse')) and (calc == 'sp'):
                         continue
-                    if (xc == 'scan_sppbe') and (calc == 'sp'):
+                    if ((xc == 'scan_sppbe') or (xc == 'r2scan_sphse')) and (calc == 'sp'):
                         continue
                     convergence = calc_dirs[xc][calc]['convergence']
                     calc_dir = calc_dirs[xc][calc]['dir']
@@ -1162,10 +1185,11 @@ class JobSubmission(object):
                                                       'LDAUJ' : ' '.join([str(0) for v in ordered_els]),
                                                       'LDAUL' : ' '.join([str(U[el]['L']) for el in ordered_els]),
                                                       'LDAUU' : ' '.join([str(U[el]['U']) for el in ordered_els])})
-                        elif xc == 'scan_sppbe':
+                        elif xc in ['scan_sppbe', 'r2scan_sppbe']:
                             obj.modify_incar(enforce={'GGA' : 'PE',
-                                                      'ALGO' : 'All'})
-                        elif xc == 'scan_sphse':
+                                                      'ALGO' : 'All',
+                                                      **sp_params})
+                        elif xc in ['scan_sphse', 'r2scan_sphse']:
                             obj.modify_incar(enforce={'GGA' : 'PE',
                                                       'LHFCALC' : 'TRUE',
                                                       'ALGO' : 'Damped',
@@ -1209,8 +1233,12 @@ class JobSubmission(object):
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['pbe']['opt']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         elif xc == 'scan_sphse':
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['scan_sppbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
+                        elif xc == 'r2scan_sphse':
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['r2scan_sppbe']['opt']['dir'], 'WAVECAR'), os.path.join(calc_dir, 'WAVECAR')))
                         elif xc == 'scan_sppbe':
                             f.write('\ncp %s %s' % (os.path.join(calc_dirs['scan']['sp']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
+                        elif xc == 'r2scan_sppbe':
+                            f.write('\ncp %s %s' % (os.path.join(calc_dirs['r2scan']['sp']['dir'], 'CONTCAR'), os.path.join(calc_dir, 'POSCAR')))
                         if calc != 'neb':
                             f.write('\ncd %s' % calc_dir)
                         f.write(vasp_command)
