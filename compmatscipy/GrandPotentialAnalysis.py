@@ -12,7 +12,7 @@ from pymatgen.core.composition import Element
 import numpy as np
 
 def _convert_decomp_to_rxn(decomp):
-    data = {CompAnalyzer(k.composition.formula).std_formula() : decomp[k] for k in decomp}
+    data = {CompAnalyzer(k.original_comp.formula).std_formula() : decomp[k] for k in decomp}
     decomp_rxn = ['_'.join([str(np.round(data[k], 4)), k]) for k in data]
     decomp_rxn = ' + '.join(decomp_rxn)
     return decomp_rxn
@@ -55,9 +55,12 @@ class GrandPotentialAnalysis(object):
         el_refs = list(gppd.el_refs.values())
         data = {}
         for e in entries+el_refs:
+            print(e)
             stability = True if ((e in stable_entries) or (e in el_refs)) else False
             original_cmpd = CompAnalyzer(e.original_comp.formula).std_formula()
+            print(original_cmpd)
             cmpd = CompAnalyzer(e.composition.formula).std_formula()
+            print(cmpd)
             if CompAnalyzer(cmpd).num_els_in_formula == 1:
                 phid = None
                 decomp = None

@@ -95,12 +95,12 @@ class ThermoEq(object):
         sorted_formulas = self._sorted_formulas
         formulas = [f for f in sorted_formulas if f not in self.excluded]
         n0 = [input_data[formula]['amt']+1e-8 for formula in formulas]
-        bounds = [(1e-8, 1e1*np.sum(n0)) for i in n0]
+        bounds = [(1e-12, 1e1*np.sum(n0)) for i in n0]
         def func(nj):
             nj = np.array(nj)
             Enj = np.sum([nj[i] for i in range(len(nj)) if input_data[formulas[i]]['phase'] == 'nonsolid'])
             if Enj != 0:
-                Gj =  [(Gjo[i] + R*T*np.log(nj[i] / Enj)) if input_data[formulas[i]]['phase'] == 'nonsolid' else (Gjo[i]) for i in range(len(nj))]
+                Gj =  [(Gjo[i] + R*T*np.log(nj[i] / Enj)) if ((input_data[formulas[i]]['phase'] == 'nonsolid') and (nj[i]/Enj > 0)) else (Gjo[i]) for i in range(len(nj))]
             else:
                 Gj =  [Gjo[i] for i in range(len(nj))]
     #        Gj = [(Gjo[i] / (0.008314 * T) + np.log(nj[i] / Enj)) for i in range(len(nj))]
@@ -109,8 +109,8 @@ class ThermoEq(object):
         def ec1(nj):
             return np.dot(A, nj) - b
         
-        niter = 100
-        out, fx, its, imode, smode = fmin_slsqp(func, n0, f_eqcons=ec1, bounds=bounds, iter=niter, acc=1e-4, iprint=0, full_output=True)
+        niter = 1000
+        out, fx, its, imode, smode = fmin_slsqp(func, n0, f_eqcons=ec1, bounds=bounds, iter=niter, acc=1e-4, iprint=2, full_output=True)
         if imode != 0:
             print('trying softer\n')
             out, fx, its, imode, smode = fmin_slsqp(func, n0, f_eqcons=ec1, bounds=bounds, iter=niter, acc=1e-3, iprint=0, full_output=True)
@@ -158,7 +158,7 @@ def main():
                      'dG' : 0}, 
             'H2' : {'phase': 'nonsolid',
                     'amt': 0,
-                    'dG' : 0}}   
+                    'dG' : -1000}}   
                      
     obj = ThermoEq(data, 1000, [])
     print(obj.results)
