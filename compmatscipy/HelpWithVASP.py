@@ -850,6 +850,53 @@ class JobSubmission(object):
         elif machine in ['bridges', 'lrc']:
             mpi_command = 'mpirun'
         job_name, mem, err_file, out_file, walltime, nodes = self.job_name, self.mem, self.err_file, self.out_file, self.walltime, self.nodes
+        if (machine in ['mangi', 'mesabi']):
+            if not partition:
+                partition = 'small'
+            if not nodes:
+                nodes = 1
+            if partition == 'amdsmall':
+                nodes = 1
+                ntasks = 32
+            elif partition == 'small':
+                ntasks = 24
+            elif partition == 'amdlarge':
+                ntasks = 128
+            elif partition == 'v100':
+                nodes = 1
+                ntasks = 24
+            elif partition == 'k40':
+                tasks_per_node = 24 
+        if (machine == 'agate'):
+            if not partition:
+                partition = 'aglarge'
+            if not nodes:
+                nodes = 1
+            if partition == 'agsmall':
+                nodes = 1
+                tasks_per_node = 32
+            elif partition == 'aglarge':
+                tasks_per_node = 128
+            elif partition == 'a100-4':
+                tasks_per_node = 32
+            elif partition == 'a100-8':
+                nodes = 1
+                tasks_per_node = 128
+        if machine == 'msi':
+            if not partition:
+                partition = 'msismall'
+            if not nodes:
+                nodes = 1
+            if partition == 'msismall':
+                tasks_per_node = 24
+                nodes = 1
+            elif partition == 'msilarge':
+                tasks_per_node = 128
+            elif partition == 'msigpu':
+                tasks_per_node = 24
+                nodes = 1
+        if not tasks_per_node:
+            tasks_per_node = 24
         ntasks = int(nodes*tasks_per_node)
         nodes = None if machine not in ['stampede2', 'cori'] else nodes
         if machine == 'savio':
@@ -871,53 +918,7 @@ class JobSubmission(object):
                 qos = 'lr_normal'
                 partition = 'lr5'
         if (machine == 'bridges2') and not partition:
-            partition = 'RM'
-        if (machine in ['mangi', 'mesabi']):
-            if not partition:
-                partition = 'small'
-            if not nodes:
-                nodes = 1
-            if partition == 'amdsmall':
-                nodes = 1
-                ntasks = 32
-            elif partition == 'small':
-                ntasks = 24*nodes
-            elif partition == 'amdlarge':
-                ntasks = 128*nodes
-            elif partition == 'v100':
-                nodes = 1
-                ntasks = 24
-            elif partition == 'k40':
-                ntasks = 24*nodes 
-        if (machine == 'agate'):
-            if not partition:
-                partition = 'aglarge'
-            if not nodes:
-                nodes = 1
-            if partition == 'agsmall':
-                nodes = 1
-                ntasks = 32
-            elif partition == 'aglarge':
-                ntasks = nodes*128
-            elif partition == 'a100-4':
-                ntasks = nodes*32
-            elif partition == 'a100-8':
-                nodes = 1
-                ntasks = 128
-        if machine == 'msi':
-            if not partition:
-                partition = 'msismall'
-            if not nodes:
-                nodes = 1
-            if partition == 'msismall':
-                ntasks = 24
-                nodes = 1
-            elif partition == 'msilarge':
-                ntasks = 128*nodes
-            elif partition == 'msigpu':
-                ntasks = 24
-                nodes = 1
-            
+            partition = 'RM'           
                 
         slurm_options = {'account' : account,
                          'constraint' : constraint if constraint != 'hsw' else 'haswell',
