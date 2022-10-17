@@ -19,7 +19,7 @@ class PullMP(object):
             api_key (str) - API key to access Materials Project
         NOTE: my key = 'N3KdATtMmcsUL94g'
         """        
-        self.api_key = 'N3KdATtMmcsUL94g'
+        self.api_key = 'E4p0iuBO8rX7XTaPe5c4O8WO5YpikMB1'
         
     @staticmethod
     def queryable_properties():

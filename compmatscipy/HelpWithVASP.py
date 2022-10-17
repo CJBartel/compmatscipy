@@ -953,7 +953,7 @@ class JobSubmission(object):
             home_dir = '/home/cbartel/shared/bin/'
         else:
             raise ValueError
-        if machine != 'bridges2':
+        if machine not in ['bridges2', 'mesabi', 'mangi', 'agate']:
             which_vasp = 'vasp' if 'r2scan' not in self.xcs else 'vasp6'
         else:
             which_vasp = 'vasp6'
