@@ -757,13 +757,33 @@ class JobSubmission(object):
         -partitions
         ---RM (128 cores per node); 48 hr
         
-
+        mangi/mesabi
+        -partitions
+        ---amdsmall (128 cores/node; 1 node max; 96 h)
+        ---amdlarge (128; 32; 96)
+        ---v100 (24; 1; 24)
+        ---small (24; 10; 96)
+        ---large (24; 48; 24)
+        ---k40 (24; 24; 40)
+        
+        agate
+        -partitions
+        ---agsmall (128 cores/node; 1 node max; 96 hr; node sharing)
+        ---aglarge (128 cores/node, 32 nodes max; 24 h; no node sharing)
+        ---a100-4 (64 cores/node; 4 node max; 24 h; node sharing)
+        ---a100-8 (128 cores per node; 1 node max; 24 h; node sharing)
+        
+        msi (federated)
+        -partitions
+        ---msismall (24-128 cores/node, 1 node max, 96 h)
+        ---msilarge (24-128 cores/node, 32 nodes max, 24 h)
+        ---msigpu (24-128 cores/node, 1 node max, 24 h)
         """
 
     @property
     def manager(self):
         machine = self.machine
-        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges', 'lrc']:
+        if machine in ['eagle', 'cori', 'stampede2', 'savio', 'bridges', 'lrc', 'msi', 'agate', 'mesabi', 'mangi']:
             return '#SBATCH'
         else:
             raise ValueError
@@ -786,6 +806,8 @@ class JobSubmission(object):
                 account = 'dmr060032p'
             elif machine == 'lrc':
                 account='lr_ceder'
+            elif machine in ['mangi', 'mesabi', 'agate', 'msi']:
+                account='cbartel'
             else:
                 raise ValueError
         partition = self.partition
@@ -848,6 +870,52 @@ class JobSubmission(object):
                 partition = 'lr5'
         if (machine == 'bridges2') and not partition:
             partition = 'RM'
+        if (machine in ['mangi', 'mesabi']):
+            if not partition:
+                partition = 'small'
+            if not nodes:
+                nodes = 1
+            if partition == 'amdsmall':
+                nodes = 1
+                ntasks = 32
+            elif partition == 'small':
+                ntasks = 24*nodes
+            elif partition == 'amdlarge':
+                ntasks = 128*nodes
+            elif partition == 'v100':
+                nodes = 1
+                ntasks = 24
+            elif partition == 'k40':
+                ntasks = 24*nodes 
+        if (machine == 'agate'):
+            if not partition:
+                partition = 'aglarge'
+            if not nodes:
+                nodes = 1
+            if partition == 'agsmall':
+                nodes = 1
+                ntasks = 32
+            elif partition == 'aglarge':
+                ntasks = nodes*128
+            elif partition == 'a100-4':
+                ntasks = nodes*32
+            elif partition == 'a100-8':
+                nodes = 1
+                ntasks = 128
+        if machine == 'msi':
+            if not partition:
+                partition = 'msismall'
+            if not nodes:
+                nodes = 1
+            if partition == 'msismall':
+                ntasks = 24
+                nodes = 1
+            elif partition == 'msilarge':
+                ntasks = 128*nodes
+            elif partition == 'msigpu':
+                ntasks = 24
+                nodes = 1
+            
                 
         slurm_options = {'account' : account,
                          'constraint' : constraint if constraint != 'hsw' else 'haswell',
@@ -879,6 +947,8 @@ class JobSubmission(object):
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges2':
             home_dir = '/jet/home/cbartel'
+        elif machine in ['msi', 'agate', 'mangi', 'mesabi']:
+            home_dir = '/home/cbartel/shared/bin/'
         else:
             raise ValueError
         if machine != 'bridges2':
@@ -895,7 +965,7 @@ class JobSubmission(object):
             return 'ibrun'
         elif machine in ['cori', 'eagle']:
             return 'srun'
-        elif machine in ['savio', 'bridges', 'lrc', 'bridges2']:
+        elif machine in ['savio', 'bridges', 'lrc', 'bridges2', 'agate', 'msi', 'mesabi', 'mangi']:
             return 'mpirun'
         else:
             raise ValueError
@@ -948,6 +1018,8 @@ class JobSubmission(object):
             home_dir = '/global/homes/c/cbartel'
         elif machine == 'lrc':
             home_dir = '/global/home/users/cbartel'
+        elif machine in ['mesabi', 'mangi', 'agate', 'msi']:
+            home_dir = '/home/cbartel/shared/bin/'
         return '\n%s/bin/chgsum.pl AECCAR0 AECCAR2\n%s/bin/bader CHGCAR -ref CHGCAR_sum\n' % (home_dir, home_dir)
 
     def write_lobster_orbs(self, calc_dir):
@@ -972,7 +1044,9 @@ class JobSubmission(object):
         elif machine == 'lrc':
             home_dir = '/global/home/users/cbartel'
         elif machine == 'bridges2':
-            home_dir = '/jet/home/cbartel'
+            home_dir = '/jet/home/cbartel'        
+        elif machine in ['mesabi', 'mangi', 'agate', 'msi']:
+            home_dir = '/home/cbartel/shared/bin/'
         return '\n%s/bin/lobster-3.2.0\n' % home_dir
 
     def write_lobsterin(self, calc_dir, min_d=1.0, max_d=5.0, min_E=-60, max_E=20, basis='pbeVaspFit2015', orbitalwise=False):

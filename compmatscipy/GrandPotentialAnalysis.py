@@ -41,13 +41,6 @@ class GrandPotentialAnalysis(object):
     
     @property
     def hull_output_data(self):
-        """
-        Args:
-            compound (str) - formula to get data for
-            
-        Returns:
-            hull_output_data but only for single compound
-        """
         
         gppd = self._gppd
         entries = gppd.all_entries
