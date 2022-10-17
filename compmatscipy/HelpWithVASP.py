@@ -951,7 +951,7 @@ class JobSubmission(object):
         elif machine == 'bridges2':
             home_dir = '/jet/home/cbartel'
         elif machine in ['msi', 'agate', 'mangi', 'mesabi']:
-            home_dir = '/home/cbartel/shared/bin/'
+            home_dir = '/home/cbartel/shared/'
         else:
             raise ValueError
         if machine not in ['bridges2']:
