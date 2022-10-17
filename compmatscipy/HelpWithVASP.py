@@ -565,6 +565,8 @@ class VASPSetUp(object):
             path_to_pots = '/global/home/users/cbartel/bin/pp'
         elif machine == 'bridges2':
             path_to_pots = '/jet/home/cbartel/bin/pp'
+        elif machine in ['mesabi', 'mangi', 'agate', 'msi']:
+            path_to_pots = '/home/cbartel/shared/bin/pp'
         if src == 'gga_54':
             pot_dir = 'POT_GGA_PAW_PBE_54'
         elif src == 'gga_52':
@@ -577,7 +579,7 @@ class VASPSetUp(object):
             pot_dir = 'POT_GGA_PAW_PBE'
             if src != 'gga':
                 print('using GGA pots bc MP = TRUE')
-        pots = os.path.join(path_to_pots, pot_dir)
+        pots = os.path.join(path_to_pots, pot_dir) if machine not in ['mesabi', 'mangi', 'agate', 'msi'] else path_to_pots
 #        if machine == 'ginar':
 #            path_to_pots = '/home/cbartel/apps/pp/potpaw_PBE.54/'
 #        elif machine == 'stampede2':
