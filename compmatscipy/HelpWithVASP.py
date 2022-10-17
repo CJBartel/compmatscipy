@@ -1170,7 +1170,7 @@ class JobSubmission(object):
         machine = self.machine
         sub_file = self.sub_file
         fsub = os.path.join(self.launch_dir, sub_file)
-        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges', 'lrc']
+        allowed_machines = ['stampede2', 'eagle', 'cori', 'savio', 'bridges', 'lrc', 'mesabi', 'mangi', 'agate', 'msi']
         if machine not in allowed_machines:
             raise ValueError
         line1 = '#!/bin/bash\n'
