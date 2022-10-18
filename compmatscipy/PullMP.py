@@ -8,6 +8,22 @@ from compmatscipy.handy_functions import read_json, write_json, list_of_dicts_to
 from compmatscipy.CompAnalyzer import CompAnalyzer
 from itertools import combinations
 
+from mp_api.client import MPRester as _new_MPRester
+
+class _new_api_PullMP(object):
+    """
+    writing for new API
+    """
+    
+    def __init__(self, api_key='E4p0iuBO8rX7XTaPe5c4O8WO5YpikMB1'):
+        """
+        Args:
+            api_key (str) - API key to access Materials Project
+        """
+        self.api_key = api_key
+        self.mpr = _new_MPRester(self.api_key)
+        
+    
 class PullMP(object):
     """
     Helper to grab Materials Proejct data
@@ -19,7 +35,7 @@ class PullMP(object):
             api_key (str) - API key to access Materials Project
         NOTE: my key = 'N3KdATtMmcsUL94g'
         """        
-        self.api_key = 'E4p0iuBO8rX7XTaPe5c4O8WO5YpikMB1'
+        self.api_key = 'N3KdATtMmcsUL94g'
         
     @staticmethod
     def queryable_properties():
@@ -169,7 +185,27 @@ class PullMP(object):
         poscar = Poscar(structure)
         poscar.write_file(fpos)
         return poscar
-        
+    
+    def get_incar(self, material_id):
+        """
+        Args:
+            material_id (str) - MP ID
+        Returns:
+            incar as dict
+        """
+        mpr = self.rester
+        return mpr.query(material_id, ['input.incar'])[0]
+    
+    def get_kpoints(self, material_id):
+        """
+        Args:
+            material_id (str) - MP ID
+        Returns:
+            kpoints as dict
+        """
+        mpr = self.rester
+        return mpr.query(material_id, ['input.kpoints'])[0]
+
 def main():
     return
 
